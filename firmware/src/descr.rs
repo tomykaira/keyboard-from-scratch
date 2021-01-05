@@ -84,10 +84,14 @@ pub const STRING_DESCR0: &[u8] = &[0x04, 0x03, 0x09, 0x04];
 pub fn build_string_descr(buf: &mut [u8], data: &str) -> Option<usize> {
     let utf16 = data.encode_utf16();
 
-    let iter = buf[2..].chunks_exact_mut(2).zip(utf16).enumerate().map(|(idx, (dst, chr))| {
-        dst.copy_from_slice(&chr.to_le_bytes());
-        idx
-    });
+    let iter = buf[2..]
+        .chunks_exact_mut(2)
+        .zip(utf16)
+        .enumerate()
+        .map(|(idx, (dst, chr))| {
+            dst.copy_from_slice(&chr.to_le_bytes());
+            idx
+        });
     iter.last().map(|idx| {
         let len = (idx + 1) * 2 + 2;
         buf[0..2].copy_from_slice(&[len as u8, 0x03]);

@@ -92,7 +92,8 @@ impl BTableRxEntry {
 
 pub fn copy_to_pm(pm: &[VolatileCell<u16>], buf: &[u8]) {
     let pm_iter = pm.iter().step_by(2);
-    let buf16 = unsafe { slice::from_raw_parts((buf as *const [u8]) as *const u16, buf.len() >> 1) };
+    let buf16 =
+        unsafe { slice::from_raw_parts((buf as *const [u8]) as *const u16, buf.len() >> 1) };
     let buf_iter = buf16.iter();
     for (dst, src) in pm_iter.zip(buf_iter) {
         dst.set(*src);
