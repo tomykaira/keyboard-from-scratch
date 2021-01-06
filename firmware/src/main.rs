@@ -61,6 +61,9 @@ fn setup_clock(rcc: &stm32f103::RCC, flash: &stm32f103::FLASH) {
 
 #[entry]
 fn main() -> ! {
+    let mut cp = cortex_m::peripheral::Peripherals::take().unwrap();
+    cp.DWT.enable_cycle_counter();
+
     let p = stm32f103::Peripherals::take().unwrap();
 
     setup_clock(&p.RCC, &p.FLASH);
@@ -69,6 +72,8 @@ fn main() -> ! {
         .write(|w| w.iopaen().set_bit().iopben().set_bit().iopcen().set_bit());
     p.RCC.apb1enr.write(|w| w.usben().set_bit());
     matrix::init(&p.GPIOA, &p.GPIOB);
+    peer::init(&p.RCC, &p.I2C1, &p.GPIOB);
+    let per = peer::scan(&p.I2C1);
 
     for _ in 0..80000 {
         cortex_m::asm::nop();
@@ -111,12 +116,10 @@ fn main() -> ! {
                 .write(|w| w.tickint().clear_bit().enable().set_bit());
 
             let mat = matrix::scan(&p.GPIOA, &p.GPIOB);
-            let per = peer::scan();
             stream.push(&mat, &per, clock_count);
             stream.read(|k| {
                 let mut buf = [0u8; 8];
                 buf[0] = k[0]; // modifier
-                buf[2] = k[1]; // keycode
                 kbd.hid_send_keys(&buf)
             });
         }
