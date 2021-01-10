@@ -331,9 +331,13 @@ pub struct USBKbd<'a> {
     regs: USBRegs,
     device_descr: &'a descr::DeviceDescriptor,
     config_descr: &'a [u8],
-    pub(crate) ctrl_state: ControlState<'a>,
+    ctrl_state: ControlState<'a>,
     pending_addr: Option<u8>,
     pm_top: u16,
+    device_descriptor_sent: bool,
+    config_descriptor_sent: bool,
+    string_descriptor_sent: bool,
+    hid_report_descriptor_sent: bool,
 }
 
 unsafe fn any_as_u8_slice<'a, T: Sized>(p: &'a T) -> &'a [u8] {
@@ -354,14 +358,37 @@ impl<'a> USBKbd<'a> {
             ctrl_state: ControlState::Idle { buf: ctrl_buf },
             pending_addr: None,
             pm_top: pma::BTABLE_SIZE,
+            device_descriptor_sent: false,
+            config_descriptor_sent: false,
+            string_descriptor_sent: false,
+            hid_report_descriptor_sent: false,
         }
+    }
+
+    pub(crate) fn is_ready(&self) -> bool {
+        if self.device_descriptor_sent
+            && self.config_descriptor_sent
+            && self.string_descriptor_sent
+            && self.hid_report_descriptor_sent
+        {
+            if let ControlState::Idle { buf: _ } = self.ctrl_state {
+                return true;
+            }
+        }
+        false
     }
 
     pub(crate) fn setup(&mut self) {
         self.reset();
-        self.regs
-            .cntr
-            .write(|w| w.pdwn().clear_bit().resetm().set_bit().ctrm().set_bit());
+        self.regs.cntr.write(|w| {
+            w.pdwn()
+                .clear_bit()
+                .resetm()
+                .set_bit()
+                // 1: CTR Interrupt enabled, an interrupt request is generated when the corresponding bit in the USB_ISTR register is set.
+                .ctrm()
+                .set_bit()
+        });
         self.regs.cntr.modify(|_, w| w.fres().clear_bit());
     }
 
@@ -595,18 +622,30 @@ impl<'a> USBKbd<'a> {
                 // GET_DESCRIPTOR
                 let descr_index = req.wValue & 0xff;
                 let bytes = match req.wValue & 0xff00 {
-                    0x0100 => unsafe { any_as_u8_slice(&*self.device_descr) },
-                    0x0200 => self.config_descr,
+                    0x0100 => {
+                        self.device_descriptor_sent = true;
+                        unsafe { any_as_u8_slice(&*self.device_descr) }
+                    }
+                    0x0200 => {
+                        self.config_descriptor_sent = true;
+                        self.config_descr
+                    }
                     0x0300 => {
                         if descr_index == 0 {
                             descr::STRING_DESCR0
                         } else {
                             let str_data = STRINGS[descr_index as usize - 1];
                             let len = descr::build_string_descr(&mut str_buf, str_data).unwrap();
+                            if descr_index == 3 {
+                                self.string_descriptor_sent = true;
+                            }
                             &str_buf[0..len]
                         }
                     }
-                    0x2200 => HID_REPORT_DESCR,
+                    0x2200 => {
+                        self.hid_report_descriptor_sent = true;
+                        HID_REPORT_DESCR
+                    }
                     _ => {
                         return RequestStatus::NotSupported;
                     }

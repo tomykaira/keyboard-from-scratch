@@ -113,7 +113,7 @@ fn main() -> ! {
     loop {
         kbd.usb_poll();
 
-        if let ControlState::Idle { buf: _ } = kbd.ctrl_state {
+        if kbd.is_ready() {
             let elapsed = max - p.STK.val.read().bits();
             clock_count += elapsed;
             // Reset val
@@ -140,3 +140,15 @@ fn main() -> ! {
         }
     }
 }
+
+#[interrupt]
+fn test() {}
+
+// USB low-priority interrupt (Channel 20): Triggered by all USB events (Correct
+// transfer, USB reset, etc.). The firmware has to check the interrupt source before
+// serving the interrupt.
+
+// 20 27 settable USB_LP_CAN_
+// RX0
+// USB Low Priority or CAN RX0
+// interrupts 0x0000_0090
