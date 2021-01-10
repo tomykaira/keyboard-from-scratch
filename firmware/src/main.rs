@@ -1,154 +1,327 @@
-//#![deny(warnings)]
 #![no_std]
 #![no_main]
 
-extern crate panic_halt;
+extern crate panic_semihosting;
 
-use cortex_m_rt::entry;
+use cortex_m::{asm::delay, peripheral::DWT};
+use embedded_hal::digital::v2::OutputPin;
+use rtic::cyccnt::{Instant, U32Ext as _};
+use stm32f1xx_hal::usb::{Peripheral, UsbBus, UsbBusType};
+use stm32f1xx_hal::{gpio, prelude::*};
+use usb_device::bus;
+use usb_device::prelude::*;
 
-#[allow(unused_imports)]
-use cortex_m_semihosting::hprintln;
+#[allow(unused)]
+pub mod hid {
+    use usb_device::class_prelude::*;
+    use usb_device::Result;
 
-mod cursor;
-mod descr;
-mod gpio;
-mod hid_keycodes;
-mod key_stream;
-mod matrix;
-mod peer;
-use peer::Peer;
-mod pma;
-mod usb;
-use key_stream::KeyStream;
+    pub const USB_CLASS_HID: u8 = 0x03;
 
-use crate::usb::{CompositeConfigDescriptor, ControlState, USBKbd, CONFIG_DESCR, DEVICE_DESCR};
-use stm32f1::stm32f103;
+    const USB_SUBCLASS_NONE: u8 = 0x00;
+    const USB_SUBCLASS_BOOT: u8 = 0x01;
 
-fn setup_clock(rcc: &stm32f103::RCC, flash: &stm32f103::FLASH) {
-    rcc.cr.write(|w| w.hsion().set_bit());
-    while rcc.cr.read().hsirdy().bit_is_clear() {}
-    rcc.cfgr.write(|w| w.sw().hsi());
+    const USB_INTERFACE_NONE: u8 = 0x00;
+    const USB_INTERFACE_KEYBOARD: u8 = 0x01;
+    const USB_INTERFACE_MOUSE: u8 = 0x02;
 
-    rcc.cr.write(|w| w.hsion().set_bit().hseon().set_bit());
-    while rcc.cr.read().hserdy().bit_is_clear() {}
-    rcc.cfgr.write(|w| w.sw().hse());
+    const REQ_GET_REPORT: u8 = 0x01;
+    const REQ_GET_IDLE: u8 = 0x02;
+    const REQ_GET_PROTOCOL: u8 = 0x03;
+    const REQ_SET_REPORT: u8 = 0x09;
+    const REQ_SET_IDLE: u8 = 0x0a;
+    const REQ_SET_PROTOCOL: u8 = 0x0b;
 
-    flash.acr.write(|w| unsafe { w.latency().bits(0b010) });
+    // https://docs.microsoft.com/en-us/windows-hardware/design/component-guidelines/mouse-collection-report-descriptor
+    const REPORT_DESCR: &[u8] = &[
+        0x05, 0x01, // USAGE_PAGE (Generic Desktop)
+        0x09, 0x02, // USAGE (Mouse)
+        0xa1, 0x01, // COLLECTION (Application)
+        0x09, 0x01, //   USAGE (Pointer)
+        0xa1, 0x00, //   COLLECTION (Physical)
+        0x05, 0x09, //     USAGE_PAGE (Button)
+        0x19, 0x01, //     USAGE_MINIMUM (Button 1)
+        0x29, 0x03, //     USAGE_MAXIMUM (Button 3)
+        0x15, 0x00, //     LOGICAL_MINIMUM (0)
+        0x25, 0x01, //     LOGICAL_MAXIMUM (1)
+        0x95, 0x03, //     REPORT_COUNT (3)
+        0x75, 0x01, //     REPORT_SIZE (1)
+        0x81, 0x02, //     INPUT (Data,Var,Abs)
+        0x95, 0x01, //     REPORT_COUNT (1)
+        0x75, 0x05, //     REPORT_SIZE (5)
+        0x81, 0x03, //     INPUT (Cnst,Var,Abs)
+        0x05, 0x01, //     USAGE_PAGE (Generic Desktop)
+        0x09, 0x30, //     USAGE (X)
+        0x09, 0x31, //     USAGE (Y)
+        0x15, 0x81, //     LOGICAL_MINIMUM (-127)
+        0x25, 0x7f, //     LOGICAL_MAXIMUM (127)
+        0x75, 0x08, //     REPORT_SIZE (8)
+        0x95, 0x02, //     REPORT_COUNT (2)
+        0x81, 0x06, //     INPUT (Data,Var,Rel)
+        0xc0, //   END_COLLECTION
+        0xc0, // END_COLLECTION
+    ];
 
-    rcc.cfgr.write(|w| {
-        w.sw()
-            .hse()
-            .hpre()
-            .div1()
-            .adcpre()
-            .div8()
-            .ppre1()
-            .div2()
-            .ppre2()
-            .div1()
-            .pllmul()
-            .mul9()
-            .pllsrc()
-            .hse_div_prediv()
-            .pllxtpre()
-            .div1()
-    });
-
-    rcc.cr
-        .write(|w| w.hsion().set_bit().hseon().set_bit().pllon().set_bit());
-    while rcc.cr.read().pllrdy().bit_is_clear() {}
-    rcc.cfgr.write(|w| w.sw().pll());
-}
-
-#[entry]
-fn main() -> ! {
-    let mut cp = cortex_m::peripheral::Peripherals::take().unwrap();
-    cp.DWT.enable_cycle_counter();
-
-    let p = stm32f103::Peripherals::take().unwrap();
-
-    setup_clock(&p.RCC, &p.FLASH);
-    p.RCC
-        .apb2enr
-        .write(|w| w.iopaen().set_bit().iopben().set_bit().iopcen().set_bit());
-    p.RCC.apb1enr.write(|w| w.usben().set_bit());
-    // LED -- indicator for peer error
-    p.GPIOC.crh.modify(|_, w| {
-        w.cnf13()
-            .bits(gpio::OutputCnf::Pushpull.bits())
-            .mode13()
-            .bits(gpio::Mode::Output2MHz.bits())
-    });
-    matrix::init(&p.GPIOA, &p.GPIOB);
-    let mut peer = Peer::new(&p.RCC, &cp.DWT, &p.GPIOB);
-    peer.init();
-
-    for _ in 0..80000 {
-        cortex_m::asm::nop();
+    pub fn report(x: i8, y: i8) -> [u8; 3] {
+        [
+            0x00,    // button: none
+            x as u8, // x-axis
+            y as u8, // y-axis
+        ]
     }
 
-    unsafe {
-        pma::fill_with_zero();
+    pub struct HIDClass<'a, B: UsbBus> {
+        report_if: InterfaceNumber,
+        report_ep: EndpointIn<'a, B>,
     }
-    let mut ctrl_buf = [0u8; 128];
-    let config_descr_buf = unsafe {
-        core::slice::from_raw_parts(
-            (&CONFIG_DESCR as *const CompositeConfigDescriptor) as *const u8,
-            core::mem::size_of::<CompositeConfigDescriptor>(),
-        )
-    };
-    let mut kbd = USBKbd::new(p.USB, &DEVICE_DESCR, config_descr_buf, &mut ctrl_buf);
-    kbd.setup();
-    let mut stream = KeyStream::new();
 
-    let mut clock_count: u32 = 0;
-    let max = 0x00ffffff;
-
-    p.STK.load_.write(|w| unsafe { w.reload().bits(max) });
-    p.STK.val.write(|w| unsafe { w.current().bits(0) });
-    p.STK
-        .ctrl
-        .write(|w| w.tickint().clear_bit().enable().set_bit());
-
-    loop {
-        kbd.usb_poll();
-
-        if kbd.is_ready() {
-            let elapsed = max - p.STK.val.read().bits();
-            clock_count += elapsed;
-            // Reset val
-            p.STK.load_.write(|w| unsafe { w.reload().bits(max) });
-            p.STK.val.write(|w| unsafe { w.current().bits(0) });
-            p.STK
-                .ctrl
-                .write(|w| w.tickint().clear_bit().enable().set_bit());
-
-            let mat = matrix::scan(&p.GPIOA, &p.GPIOB);
-            let (res, per) = peer.scan();
-            if res {
-                p.GPIOC.odr.modify(|_, w| w.odr13().set_bit());
-            } else {
-                p.GPIOC.odr.modify(|_, w| w.odr13().clear_bit());
+    impl<B: UsbBus> HIDClass<'_, B> {
+        /// Creates a new HIDClass with the provided UsbBus and max_packet_size in bytes. For
+        /// full-speed devices, max_packet_size has to be one of 8, 16, 32 or 64.
+        pub fn new(alloc: &UsbBusAllocator<B>) -> HIDClass<'_, B> {
+            HIDClass {
+                report_if: alloc.interface(),
+                report_ep: alloc.interrupt(8, 10),
             }
-            stream.push(&mat, &mat, clock_count);
-            stream.read(|k| {
-                let mut buf = [0u8; 8];
-                buf[0] = k[0]; // modifier
-                buf[2] = k[1]; // key
-                kbd.hid_send_keys(&buf)
-            });
+        }
+
+        pub fn write(&mut self, data: &[u8]) {
+            self.report_ep.write(data).ok();
+        }
+    }
+
+    impl<B: UsbBus> UsbClass<B> for HIDClass<'_, B> {
+        fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
+            writer.interface(
+                self.report_if,
+                USB_CLASS_HID,
+                USB_SUBCLASS_NONE,
+                USB_INTERFACE_MOUSE,
+            )?;
+
+            let descr_len: u16 = REPORT_DESCR.len() as u16;
+            writer.write(
+                0x21,
+                &[
+                    0x01,                   // bcdHID
+                    0x01,                   // bcdHID
+                    0x00,                   // bContryCode
+                    0x01,                   // bNumDescriptors
+                    0x22,                   // bDescriptorType
+                    descr_len as u8,        // wDescriptorLength
+                    (descr_len >> 8) as u8, // wDescriptorLength
+                ],
+            )?;
+
+            writer.endpoint(&self.report_ep)?;
+
+            Ok(())
+        }
+
+        fn control_in(&mut self, xfer: ControlIn<B>) {
+            let req = xfer.request();
+
+            if req.request_type == control::RequestType::Standard {
+                match (req.recipient, req.request) {
+                    (control::Recipient::Interface, control::Request::GET_DESCRIPTOR) => {
+                        let (dtype, _index) = req.descriptor_type_index();
+                        if dtype == 0x21 {
+                            // HID descriptor
+                            cortex_m::asm::bkpt();
+                            let descr_len: u16 = REPORT_DESCR.len() as u16;
+
+                            // HID descriptor
+                            let descr = &[
+                                0x09,                   // length
+                                0x21,                   // descriptor type
+                                0x01,                   // bcdHID
+                                0x01,                   // bcdHID
+                                0x00,                   // bCountryCode
+                                0x01,                   // bNumDescriptors
+                                0x22,                   // bDescriptorType
+                                descr_len as u8,        // wDescriptorLength
+                                (descr_len >> 8) as u8, // wDescriptorLength
+                            ];
+
+                            xfer.accept_with(descr).ok();
+                            return;
+                        } else if dtype == 0x22 {
+                            // Report descriptor
+                            xfer.accept_with(REPORT_DESCR).ok();
+                            return;
+                        }
+                    }
+                    _ => {
+                        return;
+                    }
+                };
+            }
+
+            if !(req.request_type == control::RequestType::Class
+                && req.recipient == control::Recipient::Interface
+                && req.index == u8::from(self.report_if) as u16)
+            {
+                return;
+            }
+
+            match req.request {
+                REQ_GET_REPORT => {
+                    // USB host requests for report
+                    // I'm not sure what should we do here, so just send empty report
+                    xfer.accept_with(&report(0, 0)).ok();
+                }
+                _ => {
+                    xfer.reject().ok();
+                }
+            }
+        }
+
+        fn control_out(&mut self, xfer: ControlOut<B>) {
+            let req = xfer.request();
+
+            if !(req.request_type == control::RequestType::Class
+                && req.recipient == control::Recipient::Interface
+                && req.index == u8::from(self.report_if) as u16)
+            {
+                return;
+            }
+
+            xfer.reject().ok();
         }
     }
 }
 
-#[interrupt]
-fn test() {}
+use hid::HIDClass;
 
-// USB low-priority interrupt (Channel 20): Triggered by all USB events (Correct
-// transfer, USB reset, etc.). The firmware has to check the interrupt source before
-// serving the interrupt.
+type LED = gpio::gpioc::PC13<gpio::Output<gpio::PushPull>>;
 
-// 20 27 settable USB_LP_CAN_
-// RX0
-// USB Low Priority or CAN RX0
-// interrupts 0x0000_0090
+const PERIOD: u32 = 8_000_000;
+
+#[rtic::app(device = stm32f1xx_hal::stm32, peripherals = true, monotonic = rtic::cyccnt::CYCCNT)]
+const APP: () = {
+    struct Resources {
+        counter: u8,
+        led: LED,
+
+        usb_dev: UsbDevice<'static, UsbBusType>,
+        hid: HIDClass<'static, UsbBusType>,
+    }
+
+    #[init(schedule = [on_tick])]
+    fn init(mut cx: init::Context) -> init::LateResources {
+        static mut USB_BUS: Option<bus::UsbBusAllocator<UsbBusType>> = None;
+
+        cx.core.DCB.enable_trace();
+        DWT::unlock();
+        cx.core.DWT.enable_cycle_counter();
+
+        let mut flash = cx.device.FLASH.constrain();
+        let mut rcc = cx.device.RCC.constrain();
+
+        let mut gpioc = cx.device.GPIOC.split(&mut rcc.apb2);
+        let led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
+
+        let clocks = rcc
+            .cfgr
+            .use_hse(8.mhz())
+            .sysclk(48.mhz())
+            .pclk1(24.mhz())
+            .freeze(&mut flash.acr);
+
+        assert!(clocks.usbclk_valid());
+
+        let mut gpioa = cx.device.GPIOA.split(&mut rcc.apb2);
+
+        // BluePill board has a pull-up resistor on the D+ line.
+        // Pull the D+ pin down to send a RESET condition to the USB bus.
+        let mut usb_dp = gpioa.pa12.into_push_pull_output(&mut gpioa.crh);
+        usb_dp.set_low().ok();
+        delay(clocks.sysclk().0 / 100);
+
+        let usb_dm = gpioa.pa11;
+        let usb_dp = usb_dp.into_floating_input(&mut gpioa.crh);
+
+        let usb = Peripheral {
+            usb: cx.device.USB,
+            pin_dm: usb_dm,
+            pin_dp: usb_dp,
+        };
+
+        *USB_BUS = Some(UsbBus::new(usb));
+
+        let hid = HIDClass::new(USB_BUS.as_ref().unwrap());
+
+        let usb_dev = UsbDeviceBuilder::new(USB_BUS.as_ref().unwrap(), UsbVidPid(0xc410, 0x0000))
+            .manufacturer("Fake company")
+            .product("mouse")
+            .serial_number("TEST")
+            .device_class(0)
+            .build();
+
+        cx.schedule.on_tick(cx.start + PERIOD.cycles()).ok();
+
+        init::LateResources {
+            counter: 0,
+            led,
+
+            usb_dev,
+            hid,
+        }
+    }
+
+    #[task(schedule = [on_tick], resources = [counter, led, hid])]
+    fn on_tick(mut cx: on_tick::Context) {
+        cx.schedule.on_tick(Instant::now() + PERIOD.cycles()).ok();
+
+        let counter: &mut u8 = &mut cx.resources.counter;
+        let led = &mut cx.resources.led;
+        let hid = &mut cx.resources.hid;
+
+        const P: u8 = 2;
+        *counter = (*counter + 1) % P;
+
+        // move mouse cursor horizontally (x-axis) while blinking LED
+        if *counter < P / 2 {
+            led.set_high().ok();
+            hid.write(&hid::report(10, 0));
+        } else {
+            led.set_low().ok();
+            hid.write(&hid::report(-10, 0));
+        }
+    }
+
+    #[task(binds=USB_HP_CAN_TX, resources = [counter, led, usb_dev, hid])]
+    fn usb_tx(mut cx: usb_tx::Context) {
+        usb_poll(
+            &mut cx.resources.counter,
+            &mut cx.resources.led,
+            &mut cx.resources.usb_dev,
+            &mut cx.resources.hid,
+        );
+    }
+
+    #[task(binds=USB_LP_CAN_RX0, resources = [counter, led, usb_dev, hid])]
+    fn usb_rx(mut cx: usb_rx::Context) {
+        usb_poll(
+            &mut cx.resources.counter,
+            &mut cx.resources.led,
+            &mut cx.resources.usb_dev,
+            &mut cx.resources.hid,
+        );
+    }
+
+    extern "C" {
+        fn EXTI0();
+    }
+};
+
+fn usb_poll<B: bus::UsbBus>(
+    _counter: &mut u8,
+    _led: &mut LED,
+    usb_dev: &mut UsbDevice<'static, B>,
+    hid: &mut HIDClass<'static, B>,
+) {
+    if !usb_dev.poll(&mut [hid]) {
+        return;
+    }
+}

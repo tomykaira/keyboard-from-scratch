@@ -1,21 +1,27 @@
 [package]
-name = "kb789-firmware"
+name = "firmware"
 version = "0.1.0"
-authors = ["Hidekazu Kobayashi <hidekazu-kobayashi@cookpad.com>"]
+authors = ["tomykaira <tomykaira@gmail.com>"]
 edition = "2018"
 
 [dependencies]
 cortex-m = "0.6.2"
 cortex-m-rt = { version = "0.6.11", features = ["device"] }
+cortex-m-rtic = "0.5.5"
 cortex-m-semihosting = "0.3.2"
 embedded-hal = "0.2.3"
 panic-halt = "0.2"
+panic-semihosting = "0.5"
 stm32f1 = { version = "0.12.1", features = ["rt", "stm32f103"] }
+stm32f1xx-hal = { version = "0.5", features = ["stm32f103", "stm32-usbd", "rt"] }
+usb-device = "0.2.4"
+usbd-serial = "0.1"
+usbd-webusb = "1.0.0"
 vcell = "0.1.0"
 volatile-register = "0.2"
 
 [[bin]]
-name = "kb789-firmware"
+name = "firmware"
 test = false
 bench = false
 
