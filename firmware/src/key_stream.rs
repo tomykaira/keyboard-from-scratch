@@ -177,6 +177,31 @@ fn init_constants() {
         // SIMPLE_KEY_MAP[0x44] = Mod1
         SIMPLE_KEY_MAP[0x45] = KC::KBD_SPACEBAR;
         // SIMPLE_KEY_MAP[0x46] = Mod2
+
+        SIMPLE_KEY_MAP[0x91] = KC::KBD_U;
+        SIMPLE_KEY_MAP[0x92] = KC::KBD_I;
+        SIMPLE_KEY_MAP[0x93] = KC::KBD_O;
+        SIMPLE_KEY_MAP[0x94] = KC::KBD_P;
+        SIMPLE_KEY_MAP[0x95] = KC::KBD_KEYPAD_MINUS;
+        SIMPLE_KEY_MAP[0x96] = KC::KBD_OPEN_BRACKET;
+        SIMPLE_KEY_MAP[0xa1] = KC::KBD_H;
+        SIMPLE_KEY_MAP[0xa2] = KC::KBD_J;
+        SIMPLE_KEY_MAP[0xa3] = KC::KBD_K;
+        SIMPLE_KEY_MAP[0xa4] = KC::KBD_L;
+        SIMPLE_KEY_MAP[0xa5] = KC::KBD_COLON;
+        SIMPLE_KEY_MAP[0xa6] = KC::KBD_CLOSE_BRACKET;
+        SIMPLE_KEY_MAP[0xb1] = KC::KBD_N;
+        SIMPLE_KEY_MAP[0xb2] = KC::KBD_M;
+        SIMPLE_KEY_MAP[0xb3] = KC::KBD_DOT;
+        SIMPLE_KEY_MAP[0xb4] = KC::KBD_COMMA;
+        SIMPLE_KEY_MAP[0xb5] = KC::KBD_SLASH;
+        SIMPLE_KEY_MAP[0xb6] = KC::KBD_BACKSLASH;
+        // SIMPLE_KEY_MAP[0xc1] = Customized EQ
+        // SIMPLE_KEY_MAP[0xc2] = SHIFT
+        SIMPLE_KEY_MAP[0xc3] = KC::KBD_UNDERSCORE;
+        // SIMPLE_KEY_MAP[0xc4] = No Key
+        SIMPLE_KEY_MAP[0xc5] = KC::KBD_KEYPAD_AT;
+        SIMPLE_KEY_MAP[0xc6] = KC::KBD_QUOTE;
     }
 }
 

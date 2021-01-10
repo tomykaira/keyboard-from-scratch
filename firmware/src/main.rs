@@ -16,6 +16,7 @@ mod hid_keycodes;
 mod key_stream;
 mod matrix;
 mod peer;
+use peer::Peer;
 mod pma;
 mod usb;
 use key_stream::KeyStream;
@@ -71,9 +72,16 @@ fn main() -> ! {
         .apb2enr
         .write(|w| w.iopaen().set_bit().iopben().set_bit().iopcen().set_bit());
     p.RCC.apb1enr.write(|w| w.usben().set_bit());
+    // LED -- indicator for peer error
+    p.GPIOC.crh.modify(|_, w| {
+        w.cnf13()
+            .bits(gpio::OutputCnf::Pushpull.bits())
+            .mode13()
+            .bits(gpio::Mode::Output2MHz.bits())
+    });
     matrix::init(&p.GPIOA, &p.GPIOB);
-    peer::init(&p.RCC, &p.I2C1, &p.GPIOB);
-    let per = peer::scan(&p.I2C1);
+    let mut peer = Peer::new(&p.RCC, &cp.DWT, &p.GPIOB);
+    peer.init();
 
     for _ in 0..80000 {
         cortex_m::asm::nop();
@@ -116,10 +124,17 @@ fn main() -> ! {
                 .write(|w| w.tickint().clear_bit().enable().set_bit());
 
             let mat = matrix::scan(&p.GPIOA, &p.GPIOB);
-            stream.push(&mat, &per, clock_count);
+            let (res, per) = peer.scan();
+            if res {
+                p.GPIOC.odr.modify(|_, w| w.odr13().set_bit());
+            } else {
+                p.GPIOC.odr.modify(|_, w| w.odr13().clear_bit());
+            }
+            stream.push(&mat, &mat, clock_count);
             stream.read(|k| {
                 let mut buf = [0u8; 8];
                 buf[0] = k[0]; // modifier
+                buf[2] = k[1]; // key
                 kbd.hid_send_keys(&buf)
             });
         }

@@ -31,7 +31,7 @@ enum Col {
 static COLS: [Col; 6] = [Col::C1, Col::C2, Col::C3, Col::C4, Col::C5, Col::C6];
 
 pub fn init(gpioa: &GPIOA, gpiob: &GPIOB) {
-    gpiob.crh.write(|w| {
+    gpiob.crh.modify(|_, w| {
         w.mode8()
             .bits(gpio::Mode::Output2MHz.bits())
             .cnf8()
@@ -53,7 +53,7 @@ pub fn init(gpioa: &GPIOA, gpiob: &GPIOB) {
             .cnf15()
             .bits(gpio::InputCnf::PullUpdown.bits())
     });
-    gpioa.crh.write(|w| {
+    gpioa.crh.modify(|_, w| {
         w.mode10()
             .bits(gpio::Mode::Input.bits())
             .cnf10()
@@ -67,7 +67,7 @@ pub fn init(gpioa: &GPIOA, gpiob: &GPIOB) {
             .cnf9()
             .bits(gpio::InputCnf::PullUpdown.bits())
     });
-    gpiob.crl.write(|w| {
+    gpiob.crl.modify(|_, w| {
         w.mode1()
             .bits(gpio::Mode::Output2MHz.bits())
             .cnf1()
@@ -79,10 +79,10 @@ pub fn init(gpioa: &GPIOA, gpiob: &GPIOB) {
     });
     gpioa
         .odr
-        .write(|w| w.odr8().set_bit().odr9().set_bit().odr10().set_bit());
+        .modify(|_, w| w.odr8().set_bit().odr9().set_bit().odr10().set_bit());
     gpiob
         .odr
-        .write(|w| w.odr13().set_bit().odr14().set_bit().odr15().set_bit());
+        .modify(|_, w| w.odr13().set_bit().odr14().set_bit().odr15().set_bit());
 }
 
 pub fn scan(gpioa: &GPIOA, gpiob: &GPIOB) -> [u8; 8] {
@@ -102,7 +102,7 @@ pub fn scan(gpioa: &GPIOA, gpiob: &GPIOB) -> [u8; 8] {
 
 fn set_row(row: &Row, gpiob: &GPIOB) {
     for _ in 0..1000 {
-        gpiob.odr.write(|w| {
+        gpiob.odr.modify(|_, w| {
             let w = w
                 .odr13()
                 .set_bit()
