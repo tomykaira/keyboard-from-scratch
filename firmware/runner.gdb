@@ -1,6 +1,6 @@
-break DefaultHandler
-break UserHardFault
-break rust_begin_unwind
+# break DefaultHandler
+# break UserHardFault
+# break rust_begin_unwind
 set mem inaccessible-by-default off
 monitor arm semihosting enable
 load

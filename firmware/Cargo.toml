@@ -13,12 +13,14 @@ embedded-hal = "0.2.3"
 panic-halt = "0.2"
 panic-semihosting = "0.5"
 stm32f1 = { version = "0.12.1", features = ["rt", "stm32f103"] }
-stm32f1xx-hal = { version = "0.5", features = ["stm32f103", "stm32-usbd", "rt"] }
+stm32f1xx-hal = { version = "0.6.1", features = ["stm32f103", "stm32-usbd", "rt"] }
 usb-device = "0.2.4"
 usbd-serial = "0.1"
 usbd-webusb = "1.0.0"
 vcell = "0.1.0"
 volatile-register = "0.2"
+nb = "1.0.0"
+key_stream = { path = "key_stream" }
 
 [[bin]]
 name = "firmware"

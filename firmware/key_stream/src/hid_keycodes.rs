@@ -1,4 +1,6 @@
 #[allow(dead_code)]
+pub static KBD_NONE: u8 = 0;
+#[allow(dead_code)]
 pub static KBD_A: u8 = 4;
 #[allow(dead_code)]
 pub static KBD_B: u8 = 5;
