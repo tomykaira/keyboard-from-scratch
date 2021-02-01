@@ -380,8 +380,8 @@ fn init_constants() {
         SIMPLE_KEY_MAP[0xa6] = KC::KBD_BACKSPACE;
         SIMPLE_KEY_MAP[0xb1] = KC::KBD_N;
         SIMPLE_KEY_MAP[0xb2] = KC::KBD_M;
-        SIMPLE_KEY_MAP[0xb3] = KC::KBD_DOT;
-        SIMPLE_KEY_MAP[0xb4] = KC::KBD_COMMA;
+        SIMPLE_KEY_MAP[0xb3] = KC::KBD_COMMA;
+        SIMPLE_KEY_MAP[0xb4] = KC::KBD_DOT;
         SIMPLE_KEY_MAP[0xb5] = KC::KBD_SLASH;
         SIMPLE_KEY_MAP[0xb6] = KC::KBD_JP_BACKSLASH;
         // SIMPLE_KEY_MAP[0xc1] = Shift
@@ -405,10 +405,10 @@ fn init_constants() {
         MOD1_KEY_MAP[0x26] = KC::KBD_BACKSPACE;
         MOD1_KEY_MAP[0x31] = KC::KBD_N;
         MOD1_KEY_MAP[0x32] = KC::KBD_M;
-        MOD1_KEY_MAP[0x33] = KC::KBD_DOT;
-        MOD1_KEY_MAP[0x34] = KC::KBD_COMMA;
+        MOD1_KEY_MAP[0x33] = KC::KBD_COMMA;
+        MOD1_KEY_MAP[0x34] = KC::KBD_DOT;
         MOD1_KEY_MAP[0x35] = KC::KBD_SLASH;
-        MOD1_KEY_MAP[0x36] = KC::KBD_BACKSLASH;
+        MOD1_KEY_MAP[0x36] = KC::KBD_JP_BACKSLASH;
 
         // TODO: Think better mapping for numbers
         MOD2_KEY_MAP[0x91] = KC::KBD_1;

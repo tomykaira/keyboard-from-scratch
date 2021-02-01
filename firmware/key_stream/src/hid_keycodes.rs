@@ -105,13 +105,13 @@ pub static KBD_JP_CLOSE_BLACKET: u8 = 49; // ] / }
 #[allow(dead_code)]
 pub static KBD_ASH: u8 = 50;
 #[allow(dead_code)]
-pub static KBD_JP_SEMICOLON: u8 = 51; // ; / +
-#[allow(dead_code)]
 pub static KBD_COLON: u8 = 51;
 #[allow(dead_code)]
-pub static KBD_JP_COLON: u8 = 51; // : / *
+pub static KBD_JP_SEMICOLON: u8 = 51; // ; / +
 #[allow(dead_code)]
 pub static KBD_QUOTE: u8 = 52;
+#[allow(dead_code)]
+pub static KBD_JP_COLON: u8 = 52; // : / *
 #[allow(dead_code)]
 pub static KBD_TILDE: u8 = 53;
 #[allow(dead_code)]
