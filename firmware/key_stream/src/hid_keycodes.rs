@@ -1,238 +1,241 @@
-#[allow(dead_code)]
-pub static KBD_NONE: u8 = 0;
-#[allow(dead_code)]
-pub static KBD_A: u8 = 4;
-#[allow(dead_code)]
-pub static KBD_B: u8 = 5;
-#[allow(dead_code)]
-pub static KBD_C: u8 = 6;
-#[allow(dead_code)]
-pub static KBD_D: u8 = 7;
-#[allow(dead_code)]
-pub static KBD_E: u8 = 8;
-#[allow(dead_code)]
-pub static KBD_F: u8 = 9;
-#[allow(dead_code)]
-pub static KBD_G: u8 = 10;
-#[allow(dead_code)]
-pub static KBD_H: u8 = 11;
-#[allow(dead_code)]
-pub static KBD_I: u8 = 12;
-#[allow(dead_code)]
-pub static KBD_J: u8 = 13;
-#[allow(dead_code)]
-pub static KBD_K: u8 = 14;
-#[allow(dead_code)]
-pub static KBD_L: u8 = 15;
-#[allow(dead_code)]
-pub static KBD_M: u8 = 16;
-#[allow(dead_code)]
-pub static KBD_N: u8 = 17;
-#[allow(dead_code)]
-pub static KBD_O: u8 = 18;
-#[allow(dead_code)]
-pub static KBD_P: u8 = 19;
-#[allow(dead_code)]
-pub static KBD_Q: u8 = 20;
-#[allow(dead_code)]
-pub static KBD_R: u8 = 21;
-#[allow(dead_code)]
-pub static KBD_S: u8 = 22;
-#[allow(dead_code)]
-pub static KBD_T: u8 = 23;
-#[allow(dead_code)]
-pub static KBD_U: u8 = 24;
-#[allow(dead_code)]
-pub static KBD_V: u8 = 25;
-#[allow(dead_code)]
-pub static KBD_W: u8 = 26;
-#[allow(dead_code)]
-pub static KBD_X: u8 = 27;
-#[allow(dead_code)]
-pub static KBD_Y: u8 = 28;
-#[allow(dead_code)]
-pub static KBD_Z: u8 = 29;
-#[allow(dead_code)]
-pub static KBD_1: u8 = 30;
-#[allow(dead_code)]
-pub static KBD_2: u8 = 31;
-#[allow(dead_code)]
-pub static KBD_3: u8 = 32;
-#[allow(dead_code)]
-pub static KBD_4: u8 = 33;
-#[allow(dead_code)]
-pub static KBD_5: u8 = 34;
-#[allow(dead_code)]
-pub static KBD_6: u8 = 35;
-#[allow(dead_code)]
-pub static KBD_7: u8 = 36;
-#[allow(dead_code)]
-pub static KBD_8: u8 = 37;
-#[allow(dead_code)]
-pub static KBD_9: u8 = 38;
-#[allow(dead_code)]
-pub static KBD_0: u8 = 39;
-#[allow(dead_code)]
-pub static KBD_ENTER: u8 = 40;
-#[allow(dead_code)]
-pub static KBD_ESCAPE: u8 = 41;
-#[allow(dead_code)]
-pub static KBD_BACKSPACE: u8 = 42;
-#[allow(dead_code)]
-pub static KBD_TAB: u8 = 43;
-#[allow(dead_code)]
-pub static KBD_SPACEBAR: u8 = 44;
-#[allow(dead_code)]
-pub static KBD_UNDERSCORE: u8 = 45;
-#[allow(dead_code)]
-pub static KBD_JP_HYPHEN: u8 = 45; // - / =
-#[allow(dead_code)]
-pub static KBD_PLUS: u8 = 46;
-#[allow(dead_code)]
-pub static KBD_JP_CARET: u8 = 46; // ^ / ~
-#[allow(dead_code)]
-pub static KBD_OPEN_BRACKET: u8 = 47;
-#[allow(dead_code)]
-pub static KBD_JP_AT: u8 = 47; // @ / `
-#[allow(dead_code)]
-pub static KBD_CLOSE_BRACKET: u8 = 48;
-#[allow(dead_code)]
-pub static KBD_JP_OPEN_BRACKET: u8 = 48; // [ / {
-#[allow(dead_code)]
-pub static KBD_BACKSLASH: u8 = 49;
-#[allow(dead_code)]
-pub static KBD_JP_CLOSE_BLACKET: u8 = 49; // ] / }
-#[allow(dead_code)]
-pub static KBD_ASH: u8 = 50;
-#[allow(dead_code)]
-pub static KBD_COLON: u8 = 51;
-#[allow(dead_code)]
-pub static KBD_JP_SEMICOLON: u8 = 51; // ; / +
-#[allow(dead_code)]
-pub static KBD_QUOTE: u8 = 52;
-#[allow(dead_code)]
-pub static KBD_JP_COLON: u8 = 52; // : / *
-#[allow(dead_code)]
-pub static KBD_TILDE: u8 = 53;
-#[allow(dead_code)]
-pub static KBD_COMMA: u8 = 54;
-#[allow(dead_code)]
-pub static KBD_DOT: u8 = 55;
-#[allow(dead_code)]
-pub static KBD_SLASH: u8 = 56;
-#[allow(dead_code)]
-pub static KBD_CAPS_LOCK: u8 = 57;
-#[allow(dead_code)]
-pub static KBD_F1: u8 = 58;
-#[allow(dead_code)]
-pub static KBD_F2: u8 = 59;
-#[allow(dead_code)]
-pub static KBD_F3: u8 = 60;
-#[allow(dead_code)]
-pub static KBD_F4: u8 = 61;
-#[allow(dead_code)]
-pub static KBD_F5: u8 = 62;
-#[allow(dead_code)]
-pub static KBD_F6: u8 = 63;
-#[allow(dead_code)]
-pub static KBD_F7: u8 = 64;
-#[allow(dead_code)]
-pub static KBD_F8: u8 = 65;
-#[allow(dead_code)]
-pub static KBD_F9: u8 = 66;
-#[allow(dead_code)]
-pub static KBD_F10: u8 = 67;
-#[allow(dead_code)]
-pub static KBD_F11: u8 = 68;
-#[allow(dead_code)]
-pub static KBD_F12: u8 = 69;
-#[allow(dead_code)]
-pub static KBD_PRINTSCREEN: u8 = 70;
-#[allow(dead_code)]
-pub static KBD_SCROLL_LOCK: u8 = 71;
-#[allow(dead_code)]
-pub static KBD_PAUSE: u8 = 72;
-#[allow(dead_code)]
-pub static KBD_INSERT: u8 = 73;
-#[allow(dead_code)]
-pub static KBD_HOME: u8 = 74;
-#[allow(dead_code)]
-pub static KBD_PAGEUP: u8 = 75;
-#[allow(dead_code)]
-pub static KBD_DELETE: u8 = 76;
-#[allow(dead_code)]
-pub static KBD_END: u8 = 77;
-#[allow(dead_code)]
-pub static KBD_PAGEDOWN: u8 = 78;
-#[allow(dead_code)]
-pub static KBD_RIGHT: u8 = 79;
-#[allow(dead_code)]
-pub static KBD_LEFT: u8 = 80;
-#[allow(dead_code)]
-pub static KBD_DOWN: u8 = 81;
-#[allow(dead_code)]
-pub static KBD_UP: u8 = 82;
-#[allow(dead_code)]
-pub static KBD_KEYPAD_NUM_LOCK: u8 = 83;
-#[allow(dead_code)]
-pub static KBD_KEYPAD_DIVIDE: u8 = 84;
-#[allow(dead_code)]
-pub static KBD_KEYPAD_AT: u8 = 85;
-#[allow(dead_code)]
-pub static KBD_KEYPAD_MULTIPLY: u8 = 85;
-#[allow(dead_code)]
-pub static KBD_KEYPAD_MINUS: u8 = 86;
-#[allow(dead_code)]
-pub static KBD_KEYPAD_PLUS: u8 = 87;
-#[allow(dead_code)]
-pub static KBD_KEYPAD_ENTER: u8 = 88;
-#[allow(dead_code)]
-pub static KBD_KEYPAD_1: u8 = 89;
-#[allow(dead_code)]
-pub static KBD_KEYPAD_2: u8 = 90;
-#[allow(dead_code)]
-pub static KBD_KEYPAD_3: u8 = 91;
-#[allow(dead_code)]
-pub static KBD_KEYPAD_4: u8 = 92;
-#[allow(dead_code)]
-pub static KBD_KEYPAD_5: u8 = 93;
-#[allow(dead_code)]
-pub static KBD_KEYPAD_6: u8 = 94;
-#[allow(dead_code)]
-pub static KBD_KEYPAD_7: u8 = 95;
-#[allow(dead_code)]
-pub static KBD_KEYPAD_8: u8 = 96;
-#[allow(dead_code)]
-pub static KBD_KEYPAD_9: u8 = 97;
-#[allow(dead_code)]
-pub static KBD_KEYPAD_0: u8 = 98;
+/// See `hid_keycodes` for mapping.
+pub type Kc = u8;
 
 #[allow(dead_code)]
-pub static KBD_JP_BACKSLASH: u8 = 137; // \(¥) / |
+pub static KBD_NONE: Kc = 0;
 #[allow(dead_code)]
-pub static KBD_JP_UNDERSCORE: u8 = 135;
+pub static KBD_A: Kc = 4;
 #[allow(dead_code)]
-pub static KBD_JP_MUHENKAN: u8 = 139;
+pub static KBD_B: Kc = 5;
 #[allow(dead_code)]
-pub static KBD_JP_HANKAKU_ZENAKKU: u8 = 138;
+pub static KBD_C: Kc = 6;
 #[allow(dead_code)]
-pub static KBD_JP_HENKAN: u8 = 136;
+pub static KBD_D: Kc = 7;
+#[allow(dead_code)]
+pub static KBD_E: Kc = 8;
+#[allow(dead_code)]
+pub static KBD_F: Kc = 9;
+#[allow(dead_code)]
+pub static KBD_G: Kc = 10;
+#[allow(dead_code)]
+pub static KBD_H: Kc = 11;
+#[allow(dead_code)]
+pub static KBD_I: Kc = 12;
+#[allow(dead_code)]
+pub static KBD_J: Kc = 13;
+#[allow(dead_code)]
+pub static KBD_K: Kc = 14;
+#[allow(dead_code)]
+pub static KBD_L: Kc = 15;
+#[allow(dead_code)]
+pub static KBD_M: Kc = 16;
+#[allow(dead_code)]
+pub static KBD_N: Kc = 17;
+#[allow(dead_code)]
+pub static KBD_O: Kc = 18;
+#[allow(dead_code)]
+pub static KBD_P: Kc = 19;
+#[allow(dead_code)]
+pub static KBD_Q: Kc = 20;
+#[allow(dead_code)]
+pub static KBD_R: Kc = 21;
+#[allow(dead_code)]
+pub static KBD_S: Kc = 22;
+#[allow(dead_code)]
+pub static KBD_T: Kc = 23;
+#[allow(dead_code)]
+pub static KBD_U: Kc = 24;
+#[allow(dead_code)]
+pub static KBD_V: Kc = 25;
+#[allow(dead_code)]
+pub static KBD_W: Kc = 26;
+#[allow(dead_code)]
+pub static KBD_X: Kc = 27;
+#[allow(dead_code)]
+pub static KBD_Y: Kc = 28;
+#[allow(dead_code)]
+pub static KBD_Z: Kc = 29;
+#[allow(dead_code)]
+pub static KBD_1: Kc = 30;
+#[allow(dead_code)]
+pub static KBD_2: Kc = 31;
+#[allow(dead_code)]
+pub static KBD_3: Kc = 32;
+#[allow(dead_code)]
+pub static KBD_4: Kc = 33;
+#[allow(dead_code)]
+pub static KBD_5: Kc = 34;
+#[allow(dead_code)]
+pub static KBD_6: Kc = 35;
+#[allow(dead_code)]
+pub static KBD_7: Kc = 36;
+#[allow(dead_code)]
+pub static KBD_8: Kc = 37;
+#[allow(dead_code)]
+pub static KBD_9: Kc = 38;
+#[allow(dead_code)]
+pub static KBD_0: Kc = 39;
+#[allow(dead_code)]
+pub static KBD_ENTER: Kc = 40;
+#[allow(dead_code)]
+pub static KBD_ESCAPE: Kc = 41;
+#[allow(dead_code)]
+pub static KBD_BACKSPACE: Kc = 42;
+#[allow(dead_code)]
+pub static KBD_TAB: Kc = 43;
+#[allow(dead_code)]
+pub static KBD_SPACEBAR: Kc = 44;
+#[allow(dead_code)]
+pub static KBD_UNDERSCORE: Kc = 45;
+#[allow(dead_code)]
+pub static KBD_JP_HYPHEN: Kc = 45; // - / =
+#[allow(dead_code)]
+pub static KBD_PLUS: Kc = 46;
+#[allow(dead_code)]
+pub static KBD_JP_CARET: Kc = 46; // ^ / ~
+#[allow(dead_code)]
+pub static KBD_OPEN_BRACKET: Kc = 47;
+#[allow(dead_code)]
+pub static KBD_JP_AT: Kc = 47; // @ / `
+#[allow(dead_code)]
+pub static KBD_CLOSE_BRACKET: Kc = 48;
+#[allow(dead_code)]
+pub static KBD_JP_OPEN_BRACKET: Kc = 48; // [ / {
+#[allow(dead_code)]
+pub static KBD_BACKSLASH: Kc = 49;
+#[allow(dead_code)]
+pub static KBD_JP_CLOSE_BLACKET: Kc = 49; // ] / }
+#[allow(dead_code)]
+pub static KBD_ASH: Kc = 50;
+#[allow(dead_code)]
+pub static KBD_COLON: Kc = 51;
+#[allow(dead_code)]
+pub static KBD_JP_SEMICOLON: Kc = 51; // ; / +
+#[allow(dead_code)]
+pub static KBD_QUOTE: Kc = 52;
+#[allow(dead_code)]
+pub static KBD_JP_COLON: Kc = 52; // : / *
+#[allow(dead_code)]
+pub static KBD_TILDE: Kc = 53;
+#[allow(dead_code)]
+pub static KBD_COMMA: Kc = 54;
+#[allow(dead_code)]
+pub static KBD_DOT: Kc = 55;
+#[allow(dead_code)]
+pub static KBD_SLASH: Kc = 56;
+#[allow(dead_code)]
+pub static KBD_CAPS_LOCK: Kc = 57;
+#[allow(dead_code)]
+pub static KBD_F1: Kc = 58;
+#[allow(dead_code)]
+pub static KBD_F2: Kc = 59;
+#[allow(dead_code)]
+pub static KBD_F3: Kc = 60;
+#[allow(dead_code)]
+pub static KBD_F4: Kc = 61;
+#[allow(dead_code)]
+pub static KBD_F5: Kc = 62;
+#[allow(dead_code)]
+pub static KBD_F6: Kc = 63;
+#[allow(dead_code)]
+pub static KBD_F7: Kc = 64;
+#[allow(dead_code)]
+pub static KBD_F8: Kc = 65;
+#[allow(dead_code)]
+pub static KBD_F9: Kc = 66;
+#[allow(dead_code)]
+pub static KBD_F10: Kc = 67;
+#[allow(dead_code)]
+pub static KBD_F11: Kc = 68;
+#[allow(dead_code)]
+pub static KBD_F12: Kc = 69;
+#[allow(dead_code)]
+pub static KBD_PRINTSCREEN: Kc = 70;
+#[allow(dead_code)]
+pub static KBD_SCROLL_LOCK: Kc = 71;
+#[allow(dead_code)]
+pub static KBD_PAUSE: Kc = 72;
+#[allow(dead_code)]
+pub static KBD_INSERT: Kc = 73;
+#[allow(dead_code)]
+pub static KBD_HOME: Kc = 74;
+#[allow(dead_code)]
+pub static KBD_PAGEUP: Kc = 75;
+#[allow(dead_code)]
+pub static KBD_DELETE: Kc = 76;
+#[allow(dead_code)]
+pub static KBD_END: Kc = 77;
+#[allow(dead_code)]
+pub static KBD_PAGEDOWN: Kc = 78;
+#[allow(dead_code)]
+pub static KBD_RIGHT: Kc = 79;
+#[allow(dead_code)]
+pub static KBD_LEFT: Kc = 80;
+#[allow(dead_code)]
+pub static KBD_DOWN: Kc = 81;
+#[allow(dead_code)]
+pub static KBD_UP: Kc = 82;
+#[allow(dead_code)]
+pub static KBD_KEYPAD_NUM_LOCK: Kc = 83;
+#[allow(dead_code)]
+pub static KBD_KEYPAD_DIVIDE: Kc = 84;
+#[allow(dead_code)]
+pub static KBD_KEYPAD_AT: Kc = 85;
+#[allow(dead_code)]
+pub static KBD_KEYPAD_MULTIPLY: Kc = 85;
+#[allow(dead_code)]
+pub static KBD_KEYPAD_MINUS: Kc = 86;
+#[allow(dead_code)]
+pub static KBD_KEYPAD_PLUS: Kc = 87;
+#[allow(dead_code)]
+pub static KBD_KEYPAD_ENTER: Kc = 88;
+#[allow(dead_code)]
+pub static KBD_KEYPAD_1: Kc = 89;
+#[allow(dead_code)]
+pub static KBD_KEYPAD_2: Kc = 90;
+#[allow(dead_code)]
+pub static KBD_KEYPAD_3: Kc = 91;
+#[allow(dead_code)]
+pub static KBD_KEYPAD_4: Kc = 92;
+#[allow(dead_code)]
+pub static KBD_KEYPAD_5: Kc = 93;
+#[allow(dead_code)]
+pub static KBD_KEYPAD_6: Kc = 94;
+#[allow(dead_code)]
+pub static KBD_KEYPAD_7: Kc = 95;
+#[allow(dead_code)]
+pub static KBD_KEYPAD_8: Kc = 96;
+#[allow(dead_code)]
+pub static KBD_KEYPAD_9: Kc = 97;
+#[allow(dead_code)]
+pub static KBD_KEYPAD_0: Kc = 98;
 
 #[allow(dead_code)]
-pub static KBD_MODIFIER_NONE: u8 = 0x00;
+pub static KBD_JP_BACKSLASH: Kc = 137; // \(¥) / |
 #[allow(dead_code)]
-pub static KBD_MODIFIER_LEFT_CTRL: u8 = 0x01;
+pub static KBD_JP_UNDERSCORE: Kc = 135;
 #[allow(dead_code)]
-pub static KBD_MODIFIER_LEFT_SHIFT: u8 = 0x02;
+pub static KBD_JP_MUHENKAN: Kc = 139;
 #[allow(dead_code)]
-pub static KBD_MODIFIER_LEFT_ALT: u8 = 0x04;
+pub static KBD_JP_HANKAKU_ZENAKKU: Kc = 138;
 #[allow(dead_code)]
-pub static KBD_MODIFIER_LEFT_UI: u8 = 0x08;
+pub static KBD_JP_HENKAN: Kc = 136;
+
 #[allow(dead_code)]
-pub static KBD_MODIFIER_RIGHT_CTRL: u8 = 0x10;
+pub static KBD_MODIFIER_NONE: Kc = 0x00;
 #[allow(dead_code)]
-pub static KBD_MODIFIER_RIGHT_SHIFT: u8 = 0x20;
+pub static KBD_MODIFIER_LEFT_CTRL: Kc = 0x01;
 #[allow(dead_code)]
-pub static KBD_MODIFIER_RIGHT_ALT: u8 = 0x40;
+pub static KBD_MODIFIER_LEFT_SHIFT: Kc = 0x02;
 #[allow(dead_code)]
-pub static KBD_MODIFIER_RIGHT_UI: u8 = 0x80;
+pub static KBD_MODIFIER_LEFT_ALT: Kc = 0x04;
+#[allow(dead_code)]
+pub static KBD_MODIFIER_LEFT_UI: Kc = 0x08;
+#[allow(dead_code)]
+pub static KBD_MODIFIER_RIGHT_CTRL: Kc = 0x10;
+#[allow(dead_code)]
+pub static KBD_MODIFIER_RIGHT_SHIFT: Kc = 0x20;
+#[allow(dead_code)]
+pub static KBD_MODIFIER_RIGHT_ALT: Kc = 0x40;
+#[allow(dead_code)]
+pub static KBD_MODIFIER_RIGHT_UI: Kc = 0x80;
