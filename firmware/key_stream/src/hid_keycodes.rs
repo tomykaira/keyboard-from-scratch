@@ -104,7 +104,7 @@ pub static KBD_JP_OPEN_BRACKET: Kc = 48; // [ / {
 #[allow(dead_code)]
 pub static KBD_BACKSLASH: Kc = 49;
 #[allow(dead_code)]
-pub static KBD_JP_CLOSE_BLACKET: Kc = 49; // ] / }
+pub static KBD_JP_CLOSE_BRACKET: Kc = 49; // ] / }
 #[allow(dead_code)]
 pub static KBD_ASH: Kc = 50;
 #[allow(dead_code)]

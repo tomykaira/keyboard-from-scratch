@@ -291,8 +291,11 @@ pub static MOD3_KEY_MAP: [Command; 48] = [
     nop(),
 ];
 
-pub static COMBO_KEYS: [(Pos, Pos, Command); 3] = [
+pub static COMBO_KEYS: [(Pos, Pos, Command); 5] = [
     (0xa2, 0xa3, k(KC::KBD_ENTER)),
     (0x24, 0x25, k(KC::KBD_ESCAPE)),
     (0x44, 0x45, m(ModifierKey::MOD3)),
+    // TODO: Current impl support only one key pair for code
+    (0xa4, 0xa5, k(KC::KBD_JP_OPEN_BRACKET)),
+    (0xa5, 0xa6, k(KC::KBD_JP_CLOSE_BRACKET)),
 ];
