@@ -29,7 +29,7 @@ mod peer;
 type LED = gpio::gpioc::PC13<gpio::Output<gpio::PushPull>>;
 
 const READ_PERIOD: u32 = 72_000; // CPU is 72MHz -> 1ms
-const TRANSFORM_PERIOD: u32 = READ_PERIOD * 50; // 50ms
+const TRANSFORM_PERIOD: u32 = READ_PERIOD * 15; // 50ms
 const SEND_PERIOD: u32 = READ_PERIOD; // 1ms
 
 #[rtic::app(device = stm32f1xx_hal::stm32, peripherals = true, monotonic = rtic::cyccnt::CYCCNT)]
