@@ -324,11 +324,8 @@ static VALID_KEY_LIST: [u8; 48] = [
 static mut SIMPLE_KEY_MAP: [u8; 256] = [0u8; 256];
 static mut MOD1_KEY_MAP: [u8; 256] = [0u8; 256];
 static mut MOD2_KEY_MAP: [u8; 256] = [0u8; 256];
-static COMBO_KEYS: [(Pos, Pos, Kc); 3] = [
-    (0x95, 0x96, KC::KBD_BACKSPACE),
-    (0xa2, 0xa3, KC::KBD_ENTER),
-    (0x24, 0x25, KC::KBD_ESCAPE),
-];
+static COMBO_KEYS: [(Pos, Pos, Kc); 2] =
+    [(0xa2, 0xa3, KC::KBD_ENTER), (0x24, 0x25, KC::KBD_ESCAPE)];
 
 fn expect_combo_key(on_key: u8) -> Option<(u8, u8)> {
     for (k1, k2, kc) in COMBO_KEYS.iter() {
@@ -374,44 +371,62 @@ fn init_constants() {
         SIMPLE_KEY_MAP[0x93] = KC::KBD_I;
         SIMPLE_KEY_MAP[0x94] = KC::KBD_O;
         SIMPLE_KEY_MAP[0x95] = KC::KBD_P;
-        SIMPLE_KEY_MAP[0x96] = KC::KBD_KEYPAD_MINUS;
+        SIMPLE_KEY_MAP[0x96] = KC::KBD_JP_HYPHEN;
         SIMPLE_KEY_MAP[0xa1] = KC::KBD_H;
         SIMPLE_KEY_MAP[0xa2] = KC::KBD_J;
         SIMPLE_KEY_MAP[0xa3] = KC::KBD_K;
         SIMPLE_KEY_MAP[0xa4] = KC::KBD_L;
-        SIMPLE_KEY_MAP[0xa5] = KC::KBD_COLON;
-        SIMPLE_KEY_MAP[0xa6] = KC::KBD_CLOSE_BRACKET;
+        SIMPLE_KEY_MAP[0xa5] = KC::KBD_JP_SEMICOLON;
+        SIMPLE_KEY_MAP[0xa6] = KC::KBD_BACKSPACE;
         SIMPLE_KEY_MAP[0xb1] = KC::KBD_N;
         SIMPLE_KEY_MAP[0xb2] = KC::KBD_M;
         SIMPLE_KEY_MAP[0xb3] = KC::KBD_DOT;
         SIMPLE_KEY_MAP[0xb4] = KC::KBD_COMMA;
         SIMPLE_KEY_MAP[0xb5] = KC::KBD_SLASH;
-        SIMPLE_KEY_MAP[0xb6] = KC::KBD_BACKSLASH;
+        SIMPLE_KEY_MAP[0xb6] = KC::KBD_JP_BACKSLASH;
         // SIMPLE_KEY_MAP[0xc1] = Shift
-        SIMPLE_KEY_MAP[0xc2] = KC::KBD_UNDERSCORE;
+        SIMPLE_KEY_MAP[0xc2] = KC::KBD_JP_UNDERSCORE;
         // SIMPLE_KEY_MAP[0xc3] = No Key
         // SIMPLE_KEY_MAP[0xc4] = No Key
-        SIMPLE_KEY_MAP[0xc5] = KC::KBD_KEYPAD_AT;
-        SIMPLE_KEY_MAP[0xc6] = KC::KBD_QUOTE;
+        SIMPLE_KEY_MAP[0xc5] = KC::KBD_JP_AT;
+        SIMPLE_KEY_MAP[0xc6] = KC::KBD_JP_COLON;
 
         MOD1_KEY_MAP[0x11] = KC::KBD_Y;
         MOD1_KEY_MAP[0x12] = KC::KBD_U;
         MOD1_KEY_MAP[0x13] = KC::KBD_I;
         MOD1_KEY_MAP[0x14] = KC::KBD_O;
         MOD1_KEY_MAP[0x15] = KC::KBD_P;
-        MOD1_KEY_MAP[0x16] = KC::KBD_KEYPAD_MINUS;
+        MOD1_KEY_MAP[0x16] = KC::KBD_JP_HYPHEN;
         MOD1_KEY_MAP[0x21] = KC::KBD_H;
         MOD1_KEY_MAP[0x22] = KC::KBD_J;
         MOD1_KEY_MAP[0x23] = KC::KBD_K;
         MOD1_KEY_MAP[0x24] = KC::KBD_L;
-        MOD1_KEY_MAP[0x25] = KC::KBD_COLON;
-        MOD1_KEY_MAP[0x26] = KC::KBD_CLOSE_BRACKET;
+        MOD1_KEY_MAP[0x25] = KC::KBD_JP_SEMICOLON;
+        MOD1_KEY_MAP[0x26] = KC::KBD_BACKSPACE;
         MOD1_KEY_MAP[0x31] = KC::KBD_N;
         MOD1_KEY_MAP[0x32] = KC::KBD_M;
         MOD1_KEY_MAP[0x33] = KC::KBD_DOT;
         MOD1_KEY_MAP[0x34] = KC::KBD_COMMA;
         MOD1_KEY_MAP[0x35] = KC::KBD_SLASH;
         MOD1_KEY_MAP[0x36] = KC::KBD_BACKSLASH;
+
+        // TODO: Think better mapping for numbers
+        MOD2_KEY_MAP[0x91] = KC::KBD_1;
+        MOD2_KEY_MAP[0x92] = KC::KBD_2;
+        MOD2_KEY_MAP[0x93] = KC::KBD_3;
+        MOD2_KEY_MAP[0x94] = KC::KBD_4;
+        MOD2_KEY_MAP[0x95] = KC::KBD_5;
+
+        MOD2_KEY_MAP[0xa1] = KC::KBD_LEFT;
+        MOD2_KEY_MAP[0xa2] = KC::KBD_DOWN;
+        MOD2_KEY_MAP[0xa3] = KC::KBD_UP;
+        MOD2_KEY_MAP[0xa4] = KC::KBD_RIGHT;
+
+        MOD2_KEY_MAP[0xb1] = KC::KBD_6;
+        MOD2_KEY_MAP[0xb2] = KC::KBD_7;
+        MOD2_KEY_MAP[0xb3] = KC::KBD_8;
+        MOD2_KEY_MAP[0xb4] = KC::KBD_9;
+        MOD2_KEY_MAP[0xb5] = KC::KBD_0;
     }
 }
 

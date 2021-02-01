@@ -85,17 +85,31 @@ pub static KBD_SPACEBAR: u8 = 44;
 #[allow(dead_code)]
 pub static KBD_UNDERSCORE: u8 = 45;
 #[allow(dead_code)]
+pub static KBD_JP_HYPHEN: u8 = 45; // - / =
+#[allow(dead_code)]
 pub static KBD_PLUS: u8 = 46;
+#[allow(dead_code)]
+pub static KBD_JP_CARET: u8 = 46; // ^ / ~
 #[allow(dead_code)]
 pub static KBD_OPEN_BRACKET: u8 = 47;
 #[allow(dead_code)]
+pub static KBD_JP_AT: u8 = 47; // @ / `
+#[allow(dead_code)]
 pub static KBD_CLOSE_BRACKET: u8 = 48;
+#[allow(dead_code)]
+pub static KBD_JP_OPEN_BRACKET: u8 = 48; // [ / {
 #[allow(dead_code)]
 pub static KBD_BACKSLASH: u8 = 49;
 #[allow(dead_code)]
+pub static KBD_JP_CLOSE_BLACKET: u8 = 49; // ] / }
+#[allow(dead_code)]
 pub static KBD_ASH: u8 = 50;
 #[allow(dead_code)]
+pub static KBD_JP_SEMICOLON: u8 = 51; // ; / +
+#[allow(dead_code)]
 pub static KBD_COLON: u8 = 51;
+#[allow(dead_code)]
+pub static KBD_JP_COLON: u8 = 51; // : / *
 #[allow(dead_code)]
 pub static KBD_QUOTE: u8 = 52;
 #[allow(dead_code)]
@@ -192,6 +206,17 @@ pub static KBD_KEYPAD_8: u8 = 96;
 pub static KBD_KEYPAD_9: u8 = 97;
 #[allow(dead_code)]
 pub static KBD_KEYPAD_0: u8 = 98;
+
+#[allow(dead_code)]
+pub static KBD_JP_BACKSLASH: u8 = 137; // \(¥) / |
+#[allow(dead_code)]
+pub static KBD_JP_UNDERSCORE: u8 = 135;
+#[allow(dead_code)]
+pub static KBD_JP_MUHENKAN: u8 = 139;
+#[allow(dead_code)]
+pub static KBD_JP_HANKAKU_ZENAKKU: u8 = 138;
+#[allow(dead_code)]
+pub static KBD_JP_HENKAN: u8 = 136;
 
 #[allow(dead_code)]
 pub static KBD_MODIFIER_NONE: u8 = 0x00;
