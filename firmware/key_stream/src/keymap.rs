@@ -160,9 +160,42 @@ pub static MOD1_KEY_MAP: [Command; 48] = [
     nop(),
 ];
 
-pub static DOLLAR: Command = Command::ModifiedKey {
+// JP keyboard.
+static EXCLAIM: Command = Command::ModifiedKey {
+    mk: ModifierKey::SHIFT1,
+    kc: KC::KBD_1,
+};
+static DOUBLE_QUOTE: Command = Command::ModifiedKey {
+    mk: ModifierKey::SHIFT1,
+    kc: KC::KBD_2,
+};
+static NUMBER: Command = Command::ModifiedKey {
+    mk: ModifierKey::SHIFT1,
+    kc: KC::KBD_3,
+};
+static DOLLAR: Command = Command::ModifiedKey {
+    mk: ModifierKey::SHIFT1,
+    kc: KC::KBD_4,
+};
+static PERCENT: Command = Command::ModifiedKey {
+    mk: ModifierKey::SHIFT1,
+    kc: KC::KBD_5,
+};
+static AMPERSAND: Command = Command::ModifiedKey {
     mk: ModifierKey::SHIFT1,
     kc: KC::KBD_6,
+};
+static SINGLE_QUOTE: Command = Command::ModifiedKey {
+    mk: ModifierKey::SHIFT1,
+    kc: KC::KBD_7,
+};
+static OPEN_PAREN: Command = Command::ModifiedKey {
+    mk: ModifierKey::SHIFT1,
+    kc: KC::KBD_8,
+};
+static CLOSE_PAREN: Command = Command::ModifiedKey {
+    mk: ModifierKey::SHIFT1,
+    kc: KC::KBD_9,
 };
 pub static ASTERISK: Command = Command::ModifiedKey {
     mk: ModifierKey::SHIFT1,
@@ -173,11 +206,11 @@ pub static MOD2_KEY_MAP: [Command; 48] = [
     // Left
     // R1
     nop(),
-    nop(),
-    nop(),
-    nop(),
-    nop(),
-    nop(),
+    EXCLAIM,
+    DOUBLE_QUOTE,
+    NUMBER,
+    DOLLAR,
+    PERCENT,
     // R2
     nop(),
     nop(),
@@ -201,10 +234,10 @@ pub static MOD2_KEY_MAP: [Command; 48] = [
     nop(),
     // Right
     // R1
-    nop(),
-    nop(),
-    nop(),
-    nop(),
+    AMPERSAND,
+    SINGLE_QUOTE,
+    OPEN_PAREN,
+    CLOSE_PAREN,
     nop(),
     nop(),
     // R2
