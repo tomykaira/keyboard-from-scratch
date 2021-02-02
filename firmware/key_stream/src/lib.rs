@@ -504,9 +504,7 @@ mod tests {
             ]
         );
 
-        println!("{:?}", state.commands);
         state.release(&a);
-        println!("{:?}", state.commands);
         assert_eq!(
             state.make_key_report(),
             [
