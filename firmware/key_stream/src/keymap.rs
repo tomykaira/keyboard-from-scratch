@@ -227,11 +227,11 @@ pub static MOD2_KEY_MAP: [Command; 48] = [
     nop(),
     // R4
     nop(),
+    m(ModifierKey::MOD1),
+    m(ModifierKey::ALT1),
+    m(ModifierKey::UI1),
     nop(),
-    nop(),
-    nop(),
-    nop(),
-    nop(),
+    m(ModifierKey::MOD2),
     // Right
     // R1
     AMPERSAND,
@@ -247,7 +247,7 @@ pub static MOD2_KEY_MAP: [Command; 48] = [
     k(KC::KBD_RIGHT),
     nop(),
     nop(),
-    // R4
+    // R3
     nop(),
     nop(),
     nop(),
@@ -255,7 +255,7 @@ pub static MOD2_KEY_MAP: [Command; 48] = [
     nop(),
     nop(),
     // R4
-    nop(),
+    m(ModifierKey::SHIFT1),
     nop(),
     nop(),
     nop(),
@@ -288,11 +288,11 @@ pub static MOD3_KEY_MAP: [Command; 48] = [
     nop(),
     // R4
     nop(),
+    m(ModifierKey::MOD1),
+    m(ModifierKey::ALT1),
+    m(ModifierKey::UI1),
     nop(),
-    nop(),
-    nop(),
-    nop(),
-    nop(),
+    m(ModifierKey::MOD2),
     // Right
     // R1
     nop(),
@@ -308,7 +308,7 @@ pub static MOD3_KEY_MAP: [Command; 48] = [
     k(KC::KBD_6),
     k(KC::KBD_KEYPAD_PLUS),
     nop(),
-    // R4
+    // R3
     nop(),
     k(KC::KBD_1),
     k(KC::KBD_2),
@@ -316,7 +316,7 @@ pub static MOD3_KEY_MAP: [Command; 48] = [
     k(KC::KBD_0),
     nop(),
     // R4
-    nop(),
+    m(ModifierKey::SHIFT1),
     nop(),
     nop(),
     nop(),
