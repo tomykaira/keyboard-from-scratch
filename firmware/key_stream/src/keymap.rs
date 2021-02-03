@@ -11,7 +11,7 @@ pub enum Command {
     Nop,
     KeyPress { kc: Kc },
     PressModifier { mk: ModifierKey },
-    ModifiedKey { mk: ModifierKey, kc: Kc },
+    ModifiedKey { mk: &'static [ModifierKey], kc: Kc },
 }
 
 const fn k(kc: Kc) -> Command {
@@ -162,44 +162,64 @@ pub static MOD1_KEY_MAP: [Command; 48] = [
 
 // JP keyboard.
 static EXCLAIM: Command = Command::ModifiedKey {
-    mk: ModifierKey::SHIFT1,
+    mk: &[ModifierKey::SHIFT1],
     kc: KC::KBD_1,
 };
 static DOUBLE_QUOTE: Command = Command::ModifiedKey {
-    mk: ModifierKey::SHIFT1,
+    mk: &[ModifierKey::SHIFT1],
     kc: KC::KBD_2,
 };
 static NUMBER: Command = Command::ModifiedKey {
-    mk: ModifierKey::SHIFT1,
+    mk: &[ModifierKey::SHIFT1],
     kc: KC::KBD_3,
 };
 static DOLLAR: Command = Command::ModifiedKey {
-    mk: ModifierKey::SHIFT1,
+    mk: &[ModifierKey::SHIFT1],
     kc: KC::KBD_4,
 };
 static PERCENT: Command = Command::ModifiedKey {
-    mk: ModifierKey::SHIFT1,
+    mk: &[ModifierKey::SHIFT1],
     kc: KC::KBD_5,
 };
 static AMPERSAND: Command = Command::ModifiedKey {
-    mk: ModifierKey::SHIFT1,
+    mk: &[ModifierKey::SHIFT1],
     kc: KC::KBD_6,
 };
 static SINGLE_QUOTE: Command = Command::ModifiedKey {
-    mk: ModifierKey::SHIFT1,
+    mk: &[ModifierKey::SHIFT1],
     kc: KC::KBD_7,
 };
 static OPEN_PAREN: Command = Command::ModifiedKey {
-    mk: ModifierKey::SHIFT1,
+    mk: &[ModifierKey::SHIFT1],
     kc: KC::KBD_8,
 };
 static CLOSE_PAREN: Command = Command::ModifiedKey {
-    mk: ModifierKey::SHIFT1,
+    mk: &[ModifierKey::SHIFT1],
     kc: KC::KBD_9,
 };
+static EQUAL: Command = Command::ModifiedKey {
+    mk: &[ModifierKey::SHIFT1],
+    kc: KC::KBD_JP_HYPHEN,
+};
 pub static ASTERISK: Command = Command::ModifiedKey {
-    mk: ModifierKey::SHIFT1,
+    mk: &[ModifierKey::SHIFT1],
     kc: KC::KBD_JP_COLON,
+};
+static CMD_LBRACE: Command = Command::ModifiedKey {
+    mk: &[ModifierKey::UI1, ModifierKey::SHIFT1],
+    kc: KC::KBD_JP_OPEN_BRACKET,
+};
+static CMD_RBRACE: Command = Command::ModifiedKey {
+    mk: &[ModifierKey::UI1, ModifierKey::SHIFT1],
+    kc: KC::KBD_JP_CLOSE_BRACKET,
+};
+static LBRACE: Command = Command::ModifiedKey {
+    mk: &[ModifierKey::SHIFT1],
+    kc: KC::KBD_JP_OPEN_BRACKET,
+};
+static RBRACE: Command = Command::ModifiedKey {
+    mk: &[ModifierKey::SHIFT1],
+    kc: KC::KBD_JP_CLOSE_BRACKET,
 };
 
 pub static MOD2_KEY_MAP: [Command; 48] = [
@@ -239,7 +259,7 @@ pub static MOD2_KEY_MAP: [Command; 48] = [
     OPEN_PAREN,
     CLOSE_PAREN,
     nop(),
-    nop(),
+    EQUAL,
     // R2
     k(KC::KBD_LEFT),
     k(KC::KBD_DOWN),
@@ -324,10 +344,14 @@ pub static MOD3_KEY_MAP: [Command; 48] = [
     nop(),
 ];
 
-pub static COMBO_KEYS: [(Pos, Pos, Command); 5] = [
+pub static COMBO_KEYS: [(Pos, Pos, Command); 9] = [
     (0xa2, 0xa3, k(KC::KBD_ENTER)),
     (0x24, 0x25, k(KC::KBD_ESCAPE)),
     (0x44, 0x45, m(ModifierKey::MOD3)),
     (0xa4, 0xa5, k(KC::KBD_JP_OPEN_BRACKET)),
     (0xa5, 0xa6, k(KC::KBD_JP_CLOSE_BRACKET)),
+    (0xb2, 0xb3, LBRACE),
+    (0xb3, 0xb4, RBRACE),
+    (0x93, 0x95, CMD_LBRACE),
+    (0xa3, 0xa5, CMD_RBRACE),
 ];

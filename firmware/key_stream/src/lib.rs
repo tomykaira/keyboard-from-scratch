@@ -160,7 +160,9 @@ impl FeatureState {
                 Command::ModifiedKey { mk, kc } => {
                     key[ptr] = *kc;
                     ptr += 1;
-                    key[0] |= mk.code();
+                    for m in mk.iter() {
+                        key[0] |= m.code();
+                    }
                 }
             }
         }
