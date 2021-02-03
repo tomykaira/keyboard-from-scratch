@@ -17,6 +17,7 @@ const REPORT_SLOTS: usize = 6;
 const N_COL: u8 = 6;
 #[allow(dead_code)]
 const N_ROW: u8 = 4;
+const COMBO_THRESHOLD_CNT: u16 = 219; // * 65536 / 7200 = 200
 
 impl ModifierKey {
     pub fn code(&self) -> u8 {
@@ -168,6 +169,7 @@ impl FeatureState {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
+#[cfg_attr(test, derive(Debug))]
 enum Action {
     DOWN,
     UP,
@@ -175,7 +177,7 @@ enum Action {
 
 /// Key event struct.
 #[derive(Copy, Clone)]
-#[allow(dead_code)]
+#[cfg_attr(test, derive(Debug))]
 struct Event {
     action: Action,
     pos: Pos,
@@ -199,6 +201,7 @@ impl KeyStream {
     /// Update key events by currently pressed key positions.
     pub fn push(&mut self, mat: &[Pos; 8], peer: &[Pos; 8], clk: u32) {
         let cnt = (clk >> 16) as u16;
+        // Process releases first, then press.
         for i in &VALID_KEY_LIST {
             let on = is_on(mat, peer, *i);
             let was_on = self.on_pos[*i as usize];
@@ -208,15 +211,20 @@ impl KeyStream {
                     pos: *i,
                     cnt,
                 });
+                self.on_pos[*i as usize] = on;
             }
+        }
+        for i in &VALID_KEY_LIST {
+            let on = is_on(mat, peer, *i);
+            let was_on = self.on_pos[*i as usize];
             if !was_on && on {
                 self.push_event(&Event {
                     action: Action::DOWN,
                     pos: *i,
                     cnt,
                 });
+                self.on_pos[*i as usize] = on;
             }
-            self.on_pos[*i as usize] = on;
         }
     }
 
@@ -225,59 +233,73 @@ impl KeyStream {
     }
 
     /// Return: `[modifier, key]`
-    pub fn read<F>(&mut self, mut emit: F)
+    pub fn read<F>(&mut self, clk: u32, mut emit: F)
     where
         F: FnMut([u8; 8]) -> (),
     {
+        let cnt = (clk >> 16) as u16;
         let mut executed = false;
         while let Some(ev) = self.peek_event(0) {
-            self.proc_event(&ev, &mut emit);
-            executed = true;
+            let (e, consumed) = self.proc_event(cnt, &ev, &mut emit);
+            executed = executed || e || !consumed;
+            if !consumed {
+                break;
+            }
         }
         if !executed {
             emit(self.state.make_key_report());
         }
     }
 
-    fn proc_event<F>(&mut self, ev: &Event, mut emit: F)
+    /// return true if emit is called.
+    fn proc_event<F>(&mut self, cnt: u16, ev: &Event, mut emit: F) -> (bool, bool)
     where
         F: FnMut([u8; 8]) -> (),
     {
         if ev.pos == 0 {
             // skip pos = 0, empty event.
             self.consume_event();
-            return;
+            return (false, true);
         }
 
         match ev.action {
             Action::DOWN => {
-                if let Some(command) = self.process_combo_keys(ev.pos) {
-                    if self.state.press(command) {
-                        emit(self.state.make_key_report());
+                match self.process_combo_keys(cnt, ev) {
+                    ComboKeyResult::ProcessCombo { command } => {
+                        if self.state.press(command) {
+                            emit(self.state.make_key_report());
+                        }
+                        self.consume_event(); // consume two keys
+                        self.consume_event();
+                        (true, true)
                     }
-                    self.consume_event(); // skip one more event.
-                } else {
-                    let idx = pos_to_map_index(ev.pos);
-                    let map = if self.state.mods[0] {
-                        &MOD1_KEY_MAP
-                    } else if self.state.mods[1] {
-                        &MOD2_KEY_MAP
-                    } else if self.state.mods[2] {
-                        &MOD3_KEY_MAP
-                    } else {
-                        &SIMPLE_KEY_MAP
-                    };
-                    let k = &map[idx];
-                    if self.state.press(k) {
-                        emit(self.state.make_key_report());
+                    ComboKeyResult::Wait => (false, false),
+                    ComboKeyResult::NotCombo => {
+                        let idx = pos_to_map_index(ev.pos);
+                        let map = if self.state.mods[0] {
+                            &MOD1_KEY_MAP
+                        } else if self.state.mods[1] {
+                            &MOD2_KEY_MAP
+                        } else if self.state.mods[2] {
+                            &MOD3_KEY_MAP
+                        } else {
+                            &SIMPLE_KEY_MAP
+                        };
+                        let k = &map[idx];
+                        if self.state.press(k) {
+                            emit(self.state.make_key_report());
+                        }
+                        self.consume_event();
+                        (true, true)
                     }
                 }
             }
             Action::UP => {
                 self.release_related_keys(ev.pos);
+                self.consume_event();
+                (false, true)
             }
         }
-        self.consume_event();
     }
 
     fn release_related_keys(&mut self, pos: Pos) {
@@ -297,16 +319,23 @@ impl KeyStream {
         }
     }
 
-    // TODO: wait the next key crossing transform period.
-    fn process_combo_keys(&self, pos: Pos) -> Option<&'static Command> {
-        if let Some((other, kc)) = expect_combo_key(pos) {
+    fn process_combo_keys(&self, now_cnt: u16, event: &Event) -> ComboKeyResult {
+        let pos = event.pos;
+        if event.cnt + COMBO_THRESHOLD_CNT < now_cnt {
+            ComboKeyResult::NotCombo
+        } else if expect_combo_key(pos) {
             if let Some(next) = self.peek_event(1) {
-                if next.pos == other {
-                    return Some(kc);
+                if let Some(command) = find_combo(pos, next.pos) {
+                    ComboKeyResult::ProcessCombo { command }
+                } else {
+                    ComboKeyResult::NotCombo
                 }
+            } else {
+                ComboKeyResult::Wait
             }
+        } else {
+            ComboKeyResult::NotCombo
         }
-        return None;
     }
 
     /// Read the first unprocessed event.
@@ -321,19 +350,34 @@ impl KeyStream {
     }
 }
 
+enum ComboKeyResult {
+    ProcessCombo { command: &'static Command },
+    Wait,
+    NotCombo,
+}
+
 static VALID_KEY_LIST: [Pos; 48] = [
     0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x31, 0x32, 0x33, 0x34,
     0x35, 0x36, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0xa1, 0xa2,
     0xa3, 0xa4, 0xa5, 0xa6, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6,
 ];
 
-fn expect_combo_key(on_key: Pos) -> Option<(Pos, &'static Command)> {
-    for (k1, k2, kc) in COMBO_KEYS.iter() {
+fn expect_combo_key(on_key: Pos) -> bool {
+    for (k1, k2, _) in COMBO_KEYS.iter() {
         if on_key == *k1 {
-            return Some((*k2, kc));
+            return true;
         }
         if on_key == *k2 {
-            return Some((*k1, kc));
+            return true;
+        }
+    }
+    return false;
+}
+
+fn find_combo(on_k1: Pos, on_k2: Pos) -> Option<&'static Command> {
+    for (k1, k2, kc) in COMBO_KEYS.iter() {
+        if on_k1 == *k1 && on_k2 == *k2 || on_k1 == *k2 && on_k2 == *k1 {
+            return Some(kc);
         }
     }
     return None;
@@ -375,6 +419,8 @@ impl Command {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::vec::Vec;
+    const COMBO_THRESHOLD_MS: u32 = 200;
 
     #[test]
     fn test_pos_to_map_index() {
@@ -556,5 +602,148 @@ mod tests {
         assert_eq!(state.mods, [false, true, false]);
         state.release(&mod2);
         assert_eq!(state.mods, [false, false, false]);
+    }
+
+    // Convert millisecond to clock with arbitrary offset.
+    fn ms(ms: u32) -> u32 {
+        199193 + (ms * 72_000)
+    }
+
+    struct MockEmit {
+        history: Vec<[u8; 8]>,
+    }
+
+    fn mock_emit() -> MockEmit {
+        MockEmit { history: vec![] }
+    }
+
+    impl MockEmit {
+        fn emit(&mut self, v: [u8; 8]) {
+            self.history.push(v)
+        }
+        fn verify(&self, expected: Vec<[u8; 8]>) {
+            assert_eq!(self.history, expected);
+        }
+    }
+
+    #[test]
+    fn test_key_stream_simple_key_in() {
+        let mut stream = KeyStream::new();
+        let mut e = mock_emit();
+        stream.push(&[0x22, 0, 0, 0, 0, 0, 0, 0], &[0u8; 8], ms(100));
+        stream.read(ms(101), |x| e.emit(x));
+        e.verify(vec![[0, 0, KC::KBD_A, 0, 0, 0, 0, 0]]);
+    }
+
+    #[test]
+    fn test_key_stream_combo_key_flash_by_time() {
+        let mut stream = KeyStream::new();
+        let mut e = mock_emit();
+        let semicolon = [0, 0, KC::KBD_JP_SEMICOLON, 0, 0, 0, 0, 0];
+
+        stream.push(&[0u8; 8], &[0xa5, 0, 0, 0, 0, 0, 0, 0], ms(0));
+        stream.read(ms(1), |x| e.emit(x));
+        e.verify(vec![]);
+
+        // still wait
+        stream.push(
+            &[0u8; 8],
+            &[0xa5, 0, 0, 0, 0, 0, 0, 0],
+            ms(COMBO_THRESHOLD_MS),
+        );
+        stream.read(ms(COMBO_THRESHOLD_MS), |x| e.emit(x));
+        e.verify(vec![]);
+
+        stream.push(
+            &[0u8; 8],
+            &[0xa5, 0, 0, 0, 0, 0, 0, 0],
+            ms(COMBO_THRESHOLD_MS + 1),
+        );
+
+        stream.read(ms(COMBO_THRESHOLD_MS + 1), |x| e.emit(x));
+        e.verify(vec![semicolon]);
+
+        // key repeat
+        stream.push(
+            &[0u8; 8],
+            &[0xa5, 0, 0, 0, 0, 0, 0, 0],
+            ms(COMBO_THRESHOLD_MS + 2),
+        );
+        stream.read(ms(COMBO_THRESHOLD_MS + 2), |x| e.emit(x));
+        e.verify(vec![semicolon, semicolon]);
+    }
+
+    #[test]
+    fn test_key_stream_combo_key_flash_by_release() {
+        let mut stream = KeyStream::new();
+        let mut e = mock_emit();
+        let semicolon = [0, 0, KC::KBD_JP_SEMICOLON, 0, 0, 0, 0, 0];
+
+        stream.push(&[0u8; 8], &[0xa5, 0, 0, 0, 0, 0, 0, 0], ms(0));
+        stream.read(ms(1), |x| e.emit(x));
+        e.verify(vec![]);
+
+        // flash rightly because released
+        stream.push(&[0u8; 8], &[0u8; 8], ms(1));
+        stream.read(ms(2), |x| e.emit(x));
+        e.verify(vec![semicolon]);
+    }
+
+    #[test]
+    fn test_key_stream_combo_key_flash_by_other_key() {
+        let mut stream = KeyStream::new();
+        let mut e = mock_emit();
+        let semicolon = [0, 0, KC::KBD_JP_SEMICOLON, 0, 0, 0, 0, 0];
+        let a = [0, 0, KC::KBD_A, 0, 0, 0, 0, 0];
+
+        stream.push(&[0u8; 8], &[0xa5, 0, 0, 0, 0, 0, 0, 0], ms(0));
+        stream.read(ms(1), |x| e.emit(x));
+        e.verify(vec![]);
+
+        // flash rightly because non combo key is pressed
+        stream.push(&[0x22, 0, 0, 0, 0, 0, 0, 0], &[0u8; 8], ms(1));
+        stream.read(ms(2), |x| e.emit(x));
+        e.verify(vec![semicolon, a]);
+    }
+
+    #[test]
+    fn test_key_stream_combo_in_one_scan() {
+        let mut stream = KeyStream::new();
+        let mut e = mock_emit();
+        let bracket = [0, 0, KC::KBD_JP_CLOSE_BRACKET, 0, 0, 0, 0, 0];
+        let zero = [0, 0, 0, 0, 0, 0, 0, 0];
+
+        stream.push(&[0u8; 8], &[0xa5, 0, 0, 0, 0, 0, 0, 0], ms(0));
+        stream.push(&[0u8; 8], &[0xa5, 0xa6, 0, 0, 0, 0, 0, 0], ms(1));
+        stream.push(&[0u8; 8], &[0xa6, 0, 0, 0, 0, 0, 0, 0], ms(2));
+        stream.push(&[0u8; 8], &[0, 0, 0, 0, 0, 0, 0, 0], ms(3));
+        stream.read(ms(4), |x| e.emit(x));
+        e.verify(vec![bracket]);
+
+        stream.push(&[0u8; 8], &[0u8; 8], ms(5));
+        stream.read(ms(COMBO_THRESHOLD_MS + 10), |x| e.emit(x));
+        e.verify(vec![bracket, zero]); // no new key
+    }
+
+    #[test]
+    fn test_key_stream_combo_in_two_scans() {
+        let mut stream = KeyStream::new();
+        let mut e = mock_emit();
+        let bracket = [0, 0, KC::KBD_JP_CLOSE_BRACKET, 0, 0, 0, 0, 0];
+        let zero = [0, 0, 0, 0, 0, 0, 0, 0];
+
+        stream.push(&[0u8; 8], &[0xa5, 0, 0, 0, 0, 0, 0, 0], ms(0));
+        stream.read(ms(0), |x| e.emit(x));
+        stream.push(&[0u8; 8], &[0xa5, 0xa6, 0, 0, 0, 0, 0, 0], ms(1));
+        stream.read(ms(1), |x| e.emit(x));
+        e.verify(vec![bracket]);
+        stream.push(&[0u8; 8], &[0xa6, 0, 0, 0, 0, 0, 0, 0], ms(2));
+        stream.read(ms(2), |x| e.emit(x));
+        e.verify(vec![bracket, zero]);
+        stream.push(&[0u8; 8], &[0, 0, 0, 0, 0, 0, 0, 0], ms(3));
+        stream.read(ms(3), |x| e.emit(x));
+        e.verify(vec![bracket, zero, zero]);
+        stream.read(ms(4), |x| e.emit(x));
+        e.verify(vec![bracket, zero, zero, zero]);
     }
 }

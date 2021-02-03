@@ -187,7 +187,7 @@ const APP: () = {
         let stream = &mut cx.resources.stream;
         let report_buffer = &mut cx.resources.report_buffer;
 
-        stream.read(|k| {
+        stream.read(DWT::get_cycle_count(), |k| {
             report_buffer.push(&k);
         });
     }
