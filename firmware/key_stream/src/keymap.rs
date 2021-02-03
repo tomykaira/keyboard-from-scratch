@@ -212,14 +212,14 @@ pub static MOD2_KEY_MAP: [Command; 48] = [
     DOLLAR,
     PERCENT,
     // R2
-    nop(),
+    m(ModifierKey::CTRL1),
     nop(),
     nop(),
     nop(),
     nop(),
     DOLLAR,
     // R3
-    nop(),
+    m(ModifierKey::SHIFT1),
     nop(),
     nop(),
     nop(),
@@ -273,14 +273,14 @@ pub static MOD3_KEY_MAP: [Command; 48] = [
     k(KC::KBD_F12),
     nop(),
     // R2
-    nop(),
+    m(ModifierKey::CTRL1),
     k(KC::KBD_F5),
     k(KC::KBD_F6),
     k(KC::KBD_F7),
     k(KC::KBD_F8),
     nop(),
     // R3
-    nop(),
+    m(ModifierKey::SHIFT1),
     k(KC::KBD_F1),
     k(KC::KBD_F2),
     k(KC::KBD_F3),
