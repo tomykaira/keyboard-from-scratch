@@ -12,8 +12,6 @@ cortex-m-semihosting = "0.3.2"
 embedded-hal = "0.2.3"
 panic-halt = "0.2"
 panic-semihosting = "0.5"
-stm32f1 = { version = "0.12.1", features = ["rt", "stm32f103"] }
-stm32f1xx-hal = { version = "0.6.1", features = ["stm32f103", "stm32-usbd", "rt"] }
 usb-device = "0.2.4"
 usbd-serial = "0.1"
 usbd-webusb = "1.0.0"
@@ -22,12 +20,30 @@ volatile-register = "0.2"
 nb = "1.0.0"
 key_stream = { path = "key_stream" }
 
+stm32f1 = { version = "0.12.1", features = ["rt", "stm32f103"], optional = true }
+stm32f1xx-hal = { version = "0.6.1", features = ["stm32f103", "stm32-usbd", "rt"], optional = true }
+stm32f0 =  { version = "0.12.1", features = ["rt", "stm32f0x2"], optional = true }
+stm32f0xx-hal = { version = "0.17.1", features = ["stm32f072", "stm32-usbd", "rt"], optional = true }
+
+[lib]
+
 [[bin]]
-name = "firmware"
+name = "stm32f072"
 test = false
 bench = false
+required-features = ["stm32f072"]
+
+[[bin]]
+name = "stm32f103"
+test = false
+bench = false
+required-features = ["stm32f103"]
 
 [profile.release]
 codegen-units = 1 # better optimizations
 debug = true # symbols are nice and they don't increase the size on Flash
 lto = true # better optimizations
+
+[features]
+stm32f103 = ["stm32f1", "stm32f1xx-hal"]
+stm32f072 = ["stm32f0", "stm32f0xx-hal"]

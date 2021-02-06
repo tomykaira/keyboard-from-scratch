@@ -1,8 +1,14 @@
 use embedded_hal::digital::v2::{InputPin, OutputPin};
+#[cfg(feature = "stm32f072")]
+use stm32f0xx_hal::gpio;
+#[cfg(feature = "stm32f103")]
 use stm32f1xx_hal::gpio;
 
 type R1 = gpio::gpiob::PB1<gpio::Output<gpio::PushPull>>;
 type R2 = gpio::gpiob::PB5<gpio::Output<gpio::PushPull>>;
+#[cfg(feature = "stm32f072")]
+type R3 = gpio::gpiob::PB10<gpio::Output<gpio::PushPull>>;
+#[cfg(feature = "stm32f103")]
 type R3 = gpio::gpiob::PB8<gpio::Output<gpio::PushPull>>;
 type R4 = gpio::gpiob::PB9<gpio::Output<gpio::PushPull>>;
 
