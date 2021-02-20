@@ -21,7 +21,7 @@ const N_COL: u8 = 6;
 #[allow(dead_code)]
 const N_ROW: u8 = 4;
 const COMBO_THRESHOLD_CNT: u16 = 219; // * 65536 / 72000 = 200
-const COMBO_SEPARATION_CNT: u16 = 549; // * 65536 / 72000 = 500
+const COMBO_SEPARATION_CNT: u16 = 0; // * 65536 / 72000 = 500
 
 impl ModifierKey {
     pub fn code(&self) -> u8 {

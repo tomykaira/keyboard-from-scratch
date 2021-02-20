@@ -315,19 +315,19 @@ pub static MOD3_KEY_MAP: [Command; 48] = [
     m(ModifierKey::MOD2),
     // Right
     // R1
-    nop(),
+    LBRACE,
     k(KC::KBD_7),
     k(KC::KBD_8),
     k(KC::KBD_9),
     ASTERISK,
-    nop(),
+    k(KC::KBD_JP_OPEN_BRACKET),
     // R2
-    nop(),
+    RBRACE,
     k(KC::KBD_4),
     k(KC::KBD_5),
     k(KC::KBD_6),
     k(KC::KBD_KEYPAD_PLUS),
-    nop(),
+    k(KC::KBD_JP_CLOSE_BRACKET),
     // R3
     nop(),
     k(KC::KBD_1),
@@ -347,10 +347,10 @@ pub static MOD3_KEY_MAP: [Command; 48] = [
 pub static COMBO_KEYS: [(Pos, Pos, Command); 8] = [
     (0xa2, 0xa3, k(KC::KBD_ENTER)),
     (0x24, 0x25, k(KC::KBD_ESCAPE)),
-    (0xa4, 0xa5, k(KC::KBD_JP_OPEN_BRACKET)),
-    (0xa5, 0xa6, k(KC::KBD_JP_CLOSE_BRACKET)),
-    (0xb2, 0xb3, LBRACE),
-    (0xb3, 0xb4, RBRACE),
-    (0x93, 0x95, CMD_LBRACE),
-    (0xa3, 0xa5, CMD_RBRACE),
+    (0xa3, 0xa4, k(KC::KBD_JP_OPEN_BRACKET)),
+    (0xa4, 0xa5, k(KC::KBD_JP_CLOSE_BRACKET)),
+    (0xb3, 0xb4, LBRACE),
+    (0xb4, 0xb5, RBRACE),
+    (0x94, 0x96, CMD_LBRACE),
+    (0xa4, 0xa6, CMD_RBRACE),
 ];
