@@ -1,6 +1,8 @@
-use crate::stm;
-
-use embedded_hal::prelude::_embedded_hal_blocking_i2c_WriteRead;
+use stm32f1xx_hal::gpio::gpiob::{PB6, PB7};
+use stm32f1xx_hal::gpio::{Alternate, OpenDrain};
+use stm32f1xx_hal::i2c::{BlockingI2c, Error};
+use stm32f1xx_hal::pac::I2C1;
+use stm32f1xx_hal::prelude::*;
 
 const ROWS_PER_HAND: u8 = 4;
 const SERIAL_SUB_BUFFER_LENGTH: u8 = 5;
@@ -8,13 +10,15 @@ const SERIAL_SUB_BUFFER_LENGTH: u8 = 5;
 const I2C_ADDRESS: u8 = 0x19u8;
 
 pub struct Peer {
-    i2c: stm::I2C,
+    i2c: BlockingI2c<I2C1, (PB6<Alternate<OpenDrain>>, PB7<Alternate<OpenDrain>>)>,
     pub serial_sub_buffer: [u8; SERIAL_SUB_BUFFER_LENGTH as usize],
-    pub error: Option<stm::I2CError>,
+    pub error: Option<nb::Error<Error>>,
 }
 
 impl Peer {
-    pub fn new(i2c: stm::I2C) -> Peer {
+    pub fn new(
+        i2c: BlockingI2c<I2C1, (PB6<Alternate<OpenDrain>>, PB7<Alternate<OpenDrain>>)>,
+    ) -> Peer {
         return Peer {
             i2c,
             serial_sub_buffer: [0u8; SERIAL_SUB_BUFFER_LENGTH as usize],

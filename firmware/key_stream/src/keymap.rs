@@ -63,7 +63,7 @@ pub static SIMPLE_KEY_MAP: [Command; 48] = [
     k(KC::KBD_B),
     // R4
     k(KC::KBD_TILDE),
-    k(KC::KBD_JP_CARET),
+    m(ModifierKey::MOD1),
     m(ModifierKey::ALT1),
     m(ModifierKey::UI1),
     k(KC::KBD_SPACEBAR),
