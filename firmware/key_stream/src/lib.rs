@@ -1,9 +1,12 @@
-#![no_std]
+#![cfg_attr(target_arch = "arm", no_std)]
 #![deny(warnings)]
 
-#[cfg(test)]
-#[macro_use]
+#[cfg(target_arch = "x86_64")]
 extern crate std;
+
+#[cfg(target_arch = "x86_64")]
+#[allow(unused_imports)]
+use std::println;
 
 mod hid_keycodes;
 mod keymap;
@@ -17,7 +20,8 @@ const REPORT_SLOTS: usize = 6;
 const N_COL: u8 = 6;
 #[allow(dead_code)]
 const N_ROW: u8 = 4;
-const COMBO_THRESHOLD_CNT: u16 = 219; // * 65536 / 7200 = 200
+const COMBO_THRESHOLD_CNT: u16 = 219; // * 65536 / 72000 = 200
+const COMBO_SEPARATION_CNT: u16 = 549; // * 65536 / 72000 = 500
 
 impl ModifierKey {
     pub fn code(&self) -> u8 {
@@ -46,6 +50,7 @@ pub struct KeyStream {
 struct FeatureState {
     mods: [bool; 3],
     commands: [Command; REPORT_SLOTS],
+    last_action_cnt: u16,
 }
 
 impl FeatureState {
@@ -53,6 +58,7 @@ impl FeatureState {
         FeatureState {
             mods: [false; 3],
             commands: [Command::Nop; REPORT_SLOTS],
+            last_action_cnt: 0,
         }
     }
 
@@ -183,7 +189,7 @@ enum Action {
 struct Event {
     action: Action,
     pos: Pos,
-    cnt: u16, // 1 = 1/128 sec
+    cnt: u16, // 1/65536 cnt = 1/72 us
 }
 
 impl KeyStream {
@@ -289,6 +295,7 @@ impl KeyStream {
                         };
                         let k = &map[idx];
                         if self.state.press(k) {
+                            self.state.last_action_cnt = cnt;
                             emit(self.state.make_key_report());
                         }
                         self.consume_event();
@@ -323,7 +330,10 @@ impl KeyStream {
 
     fn process_combo_keys(&self, now_cnt: u16, event: &Event) -> ComboKeyResult {
         let pos = event.pos;
-        if event.cnt + COMBO_THRESHOLD_CNT < now_cnt {
+        // Ignore key combo in sequence of keys - such as typing words.
+        if self.state.last_action_cnt + COMBO_SEPARATION_CNT > now_cnt {
+            ComboKeyResult::NotCombo
+        } else if event.cnt + COMBO_THRESHOLD_CNT < now_cnt {
             ComboKeyResult::NotCombo
         } else if expect_combo_key(pos) {
             if let Some(next) = self.peek_event(1) {
@@ -423,6 +433,7 @@ mod tests {
     use super::*;
     use std::vec::Vec;
     const COMBO_THRESHOLD_MS: u32 = 200;
+    const COMBO_SEPARATION_MS: u32 = 500;
 
     #[test]
     fn test_pos_to_map_index() {
@@ -608,7 +619,7 @@ mod tests {
 
     // Convert millisecond to clock with arbitrary offset.
     fn ms(ms: u32) -> u32 {
-        199193 + (ms * 72_000)
+        (1204 + ms) * 72_000
     }
 
     struct MockEmit {
@@ -651,9 +662,9 @@ mod tests {
         stream.push(
             &[0u8; 8],
             &[0xa5, 0, 0, 0, 0, 0, 0, 0],
-            ms(COMBO_THRESHOLD_MS),
+            ms(COMBO_THRESHOLD_MS - 1),
         );
-        stream.read(ms(COMBO_THRESHOLD_MS), |x| e.emit(x));
+        stream.read(ms(COMBO_THRESHOLD_MS - 1), |x| e.emit(x));
         e.verify(vec![]);
 
         stream.push(
@@ -673,6 +684,47 @@ mod tests {
         );
         stream.read(ms(COMBO_THRESHOLD_MS + 2), |x| e.emit(x));
         e.verify(vec![semicolon, semicolon]);
+    }
+
+    #[test]
+    fn test_key_stream_combo_no_pause() {
+        let mut stream = KeyStream::new();
+        let mut e = mock_emit();
+        let a = [0, 0, KC::KBD_A, 0, 0, 0, 0, 0];
+        let semi = [0, 0, KC::KBD_JP_SEMICOLON, 0, 0, 0, 0, 0];
+        let semi_bksp = [0, 0, KC::KBD_JP_SEMICOLON, KC::KBD_BACKSPACE, 0, 0, 0, 0];
+
+        stream.push(&[0u8; 8], &[0x22, 0, 0, 0, 0, 0, 0, 0], ms(0));
+        stream.read(ms(1), |x| e.emit(x));
+        e.verify(vec![a]);
+
+        // down key combo
+        stream.push(&[0u8; 8], &[0xa5, 0xa6, 0, 0, 0, 0, 0, 0], ms(2));
+        stream.read(ms(3), |x| e.emit(x));
+        e.verify(vec![a, semi, semi_bksp]);
+    }
+
+    #[test]
+    fn test_key_stream_combo_after_pause() {
+        let mut stream = KeyStream::new();
+        let mut e = mock_emit();
+        let a = [0, 0, KC::KBD_A, 0, 0, 0, 0, 0];
+        let bracket = [0, 0, KC::KBD_JP_CLOSE_BRACKET, 0, 0, 0, 0, 0];
+
+        stream.push(&[0u8; 8], &[0x22, 0, 0, 0, 0, 0, 0, 0], ms(0));
+        stream.read(ms(1), |x| e.emit(x));
+        e.verify(vec![a]);
+
+        // down key combo
+        stream.push(
+            &[0u8; 8],
+            &[0xa5, 0xa6, 0, 0, 0, 0, 0, 0],
+            ms(1 + COMBO_SEPARATION_MS),
+        );
+        stream.read(ms(1 + COMBO_SEPARATION_MS + COMBO_THRESHOLD_MS), |x| {
+            e.emit(x)
+        });
+        e.verify(vec![a, bracket]);
     }
 
     #[test]

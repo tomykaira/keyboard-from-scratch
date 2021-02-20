@@ -55,7 +55,7 @@ pub static SIMPLE_KEY_MAP: [Command; 48] = [
     k(KC::KBD_F),
     k(KC::KBD_G),
     // R3
-    m(ModifierKey::SHIFT1),
+    m(ModifierKey::MOD3),
     k(KC::KBD_Z),
     k(KC::KBD_X),
     k(KC::KBD_C),
@@ -116,7 +116,7 @@ pub static MOD1_KEY_MAP: [Command; 48] = [
     k(KC::KBD_JP_SEMICOLON),
     k(KC::KBD_BACKSPACE),
     // R3
-    m(ModifierKey::SHIFT1),
+    m(ModifierKey::MOD3),
     k(KC::KBD_M),
     k(KC::KBD_COMMA),
     k(KC::KBD_DOT),
@@ -239,7 +239,7 @@ pub static MOD2_KEY_MAP: [Command; 48] = [
     nop(),
     DOLLAR,
     // R3
-    m(ModifierKey::SHIFT1),
+    m(ModifierKey::MOD3),
     nop(),
     nop(),
     nop(),
@@ -344,10 +344,9 @@ pub static MOD3_KEY_MAP: [Command; 48] = [
     nop(),
 ];
 
-pub static COMBO_KEYS: [(Pos, Pos, Command); 9] = [
+pub static COMBO_KEYS: [(Pos, Pos, Command); 8] = [
     (0xa2, 0xa3, k(KC::KBD_ENTER)),
     (0x24, 0x25, k(KC::KBD_ESCAPE)),
-    (0x44, 0x45, m(ModifierKey::MOD3)),
     (0xa4, 0xa5, k(KC::KBD_JP_OPEN_BRACKET)),
     (0xa5, 0xa6, k(KC::KBD_JP_CLOSE_BRACKET)),
     (0xb2, 0xb3, LBRACE),
