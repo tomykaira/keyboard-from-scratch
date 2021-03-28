@@ -2,17 +2,20 @@
 #![no_main]
 #![deny(warnings)]
 
+#[cfg(not(feature = "semihosting"))]
+extern crate panic_halt;
+#[cfg(feature = "semihosting")]
 extern crate panic_semihosting;
-// extern crate panic_halt;
 
-use cortex_m::{asm::delay, peripheral::DWT};
+use cortex_m::peripheral::DWT;
 #[allow(unused_imports)]
+#[cfg(feature = "semihosting")]
 use cortex_m_semihosting::hprintln;
 use embedded_hal::digital::v2::OutputPin;
 use rtic::cyccnt::{Instant, U32Ext as _};
-use stm32f1xx_hal::i2c::BlockingI2c;
-use stm32f1xx_hal::usb::{Peripheral, UsbBus, UsbBusType};
-use stm32f1xx_hal::{gpio, i2c::Mode, prelude::*};
+use stm32l4xx_hal::i2c::I2c;
+use stm32l4xx_hal::usb::{Peripheral, UsbBus, UsbBusType};
+use stm32l4xx_hal::{gpio, prelude::*, stm32};
 use usb_device::bus;
 use usb_device::prelude::*;
 
@@ -21,6 +24,7 @@ use key_stream::ring_buffer::RingBuffer;
 use key_stream::KeyStream;
 use matrix::Matrix;
 use peer::Peer;
+use stm32l4xx_hal::rcc::{PllConfig, PllDivider};
 
 mod hid;
 mod matrix;
@@ -28,11 +32,13 @@ mod peer;
 
 type LED = gpio::gpioc::PC13<gpio::Output<gpio::PushPull>>;
 
-const READ_PERIOD: u32 = 72_000; // CPU is 72MHz -> 1ms
-const TRANSFORM_PERIOD: u32 = READ_PERIOD * 15; // 50ms
+// Do not change CLOCK while using STM32L412.
+const CLOCK: u32 = 48; // MHz
+const READ_PERIOD: u32 = CLOCK * 1000; // about 1ms
+const TRANSFORM_PERIOD: u32 = READ_PERIOD * 15; // about 15ms
 const SEND_PERIOD: u32 = READ_PERIOD; // 1ms
 
-#[rtic::app(device = stm32f1xx_hal::stm32, peripherals = true, monotonic = rtic::cyccnt::CYCCNT)]
+#[rtic::app(device = stm32l4xx_hal::stm32, peripherals = true, monotonic = rtic::cyccnt::CYCCNT)]
 const APP: () = {
     struct Resources {
         led: LED,
@@ -56,28 +62,34 @@ const APP: () = {
         let mut flash = cx.device.FLASH.constrain();
         let mut rcc = cx.device.RCC.constrain();
 
-        let mut gpioa = cx.device.GPIOA.split(&mut rcc.apb2);
-        let mut gpiob = cx.device.GPIOB.split(&mut rcc.apb2);
-        let mut gpioc = cx.device.GPIOC.split(&mut rcc.apb2);
-        let led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
+        let mut gpioa = cx.device.GPIOA.split(&mut rcc.ahb2);
+        let mut gpiob = cx.device.GPIOB.split(&mut rcc.ahb2);
+        let mut gpioc = cx.device.GPIOC.split(&mut rcc.ahb2);
+        let led = gpioc
+            .pc13
+            .into_push_pull_output(&mut gpioc.moder, &mut gpioc.otyper);
+        let mut pwr = cx.device.PWR.constrain(&mut rcc.apb1r1);
 
+        // TODO: Is this clock correct for usb?
         let clocks = rcc
             .cfgr
-            .use_hse(8.mhz())
-            .sysclk(48.mhz())
-            .pclk1(24.mhz())
-            .freeze(&mut flash.acr);
+            .hsi48(true)
+            // HSI = 16MHz, Sys clock = 48MHz, plln >= 8 ,plldiv = 2 -> mul = 18, div = 3
+            .sysclk_with_pll(CLOCK.mhz(), PllConfig::new(3, 18 as u8, PllDivider::Div2))
+            .pclk1(28.mhz())
+            .pclk2(28.mhz())
+            .freeze(&mut flash.acr, &mut pwr);
 
-        assert!(clocks.usbclk_valid());
+        enable_crs();
+        enable_usb_pwr();
 
-        // BluePill board has a pull-up resistor on the D+ line.
-        // Pull the D+ pin down to send a RESET condition to the USB bus.
-        let mut usb_dp = gpioa.pa12.into_push_pull_output(&mut gpioa.crh);
-        usb_dp.set_low().ok();
-        delay(clocks.sysclk().0 / 100);
+        let mut o = gpiob
+            .pb3
+            .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
+        o.set_high().unwrap();
 
-        let usb_dm = gpioa.pa11;
-        let usb_dp = usb_dp.into_floating_input(&mut gpioa.crh);
+        let usb_dm = gpioa.pa11.into_af10(&mut gpioa.moder, &mut gpioa.afrh);
+        let usb_dp = gpioa.pa12.into_af10(&mut gpioa.moder, &mut gpioa.afrh);
 
         let usb = Peripheral {
             usb: cx.device.USB,
@@ -98,34 +110,55 @@ const APP: () = {
 
         let stream = KeyStream::new();
         let matrix = Matrix::new(
-            gpiob.pb1.into_push_pull_output(&mut gpiob.crl),
-            gpiob.pb5.into_push_pull_output(&mut gpiob.crl),
-            gpiob.pb8.into_push_pull_output(&mut gpiob.crh),
-            gpiob.pb9.into_push_pull_output(&mut gpiob.crh),
-            gpiob.pb13.into_pull_up_input(&mut gpiob.crh),
-            gpiob.pb14.into_pull_up_input(&mut gpiob.crh),
-            gpiob.pb15.into_pull_up_input(&mut gpiob.crh),
-            gpioa.pa8.into_pull_up_input(&mut gpioa.crh),
-            gpioa.pa9.into_pull_up_input(&mut gpioa.crh),
-            gpioa.pa10.into_pull_up_input(&mut gpioa.crh),
+            gpiob
+                .pb1
+                .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper),
+            gpiob
+                .pb5
+                .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper),
+            gpiob
+                .pb8
+                .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper),
+            gpiob
+                .pb9
+                .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper),
+            gpiob
+                .pb13
+                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            gpiob
+                .pb14
+                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            gpiob
+                .pb15
+                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            gpiob
+                .pb2
+                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            gpiob
+                .pb7
+                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            gpiob
+                .pb4
+                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
         );
 
-        let mut afio = cx.device.AFIO.constrain(&mut rcc.apb2);
-        let scl = gpiob.pb6.into_alternate_open_drain(&mut gpiob.crl);
-        let sda = gpiob.pb7.into_alternate_open_drain(&mut gpiob.crl);
-        let i2c = BlockingI2c::i2c1(
+        let mut scl = gpioa
+            .pa9
+            .into_open_drain_output(&mut gpioa.moder, &mut gpioa.otyper);
+        scl.internal_pull_up(&mut gpioa.pupdr, true);
+        let scl = scl.into_af4(&mut gpioa.moder, &mut gpioa.afrh);
+
+        let mut sda = gpioa
+            .pa10
+            .into_open_drain_output(&mut gpioa.moder, &mut gpioa.otyper);
+        sda.internal_pull_up(&mut gpioa.pupdr, true);
+        let sda = sda.into_af4(&mut gpioa.moder, &mut gpioa.afrh);
+        let i2c = I2c::i2c1(
             cx.device.I2C1,
             (scl, sda),
-            &mut afio.mapr,
-            Mode::Standard {
-                frequency: 100_000.hz(),
-            },
+            100_000.hz(),
             clocks,
-            &mut rcc.apb1,
-            1000,
-            10,
-            1000,
-            1000,
+            &mut rcc.apb1r1,
         );
 
         let peer = Peer::new(i2c);
@@ -211,13 +244,8 @@ const APP: () = {
         }
     }
 
-    #[task(binds=USB_HP_CAN_TX, resources = [usb_dev, hid], priority = 2)]
+    #[task(binds=USB, resources = [usb_dev, hid], priority = 2)]
     fn usb_tx(mut cx: usb_tx::Context) {
-        usb_poll(&mut cx.resources.usb_dev, &mut cx.resources.hid);
-    }
-
-    #[task(binds=USB_LP_CAN_RX0, resources = [usb_dev, hid], priority = 2)]
-    fn usb_rx(mut cx: usb_rx::Context) {
         usb_poll(&mut cx.resources.usb_dev, &mut cx.resources.hid);
     }
 
@@ -231,4 +259,26 @@ fn usb_poll<B: bus::UsbBus>(usb_dev: &mut UsbDevice<'static, B>, hid: &mut HIDCl
     if !usb_dev.poll(&mut [hid]) {
         return;
     }
+}
+
+fn enable_crs() {
+    let rcc = unsafe { &(*stm32::RCC::ptr()) };
+    rcc.apb1enr1.modify(|_, w| w.crsen().set_bit());
+    let crs = unsafe { &(*stm32::CRS::ptr()) };
+    // Initialize clock recovery
+    // Set autotrim enabled.
+    crs.cr.modify(|_, w| w.autotrimen().set_bit());
+    // Enable CR
+    crs.cr.modify(|_, w| w.cen().set_bit());
+}
+
+/// Enables VddUSB power supply
+fn enable_usb_pwr() {
+    // Enable PWR peripheral
+    let rcc = unsafe { &(*stm32::RCC::ptr()) };
+    rcc.apb1enr1.modify(|_, w| w.pwren().set_bit());
+
+    // Enable VddUSB
+    let pwr = unsafe { &*stm32::PWR::ptr() };
+    pwr.cr2.modify(|_, w| w.usv().set_bit());
 }

@@ -63,7 +63,7 @@ pub static SIMPLE_KEY_MAP: [Command; 48] = [
     k(KC::KBD_B),
     // R4
     k(KC::KBD_TILDE),
-    m(ModifierKey::MOD1),
+    k(KC::KBD_JP_CARET),
     m(ModifierKey::ALT1),
     m(ModifierKey::UI1),
     k(KC::KBD_SPACEBAR),
@@ -315,26 +315,26 @@ pub static MOD3_KEY_MAP: [Command; 48] = [
     m(ModifierKey::MOD2),
     // Right
     // R1
-    LBRACE,
+    nop(),
     k(KC::KBD_7),
     k(KC::KBD_8),
     k(KC::KBD_9),
     ASTERISK,
-    k(KC::KBD_JP_OPEN_BRACKET),
+    nop(),
     // R2
-    RBRACE,
+    LBRACE,
     k(KC::KBD_4),
     k(KC::KBD_5),
     k(KC::KBD_6),
     k(KC::KBD_KEYPAD_PLUS),
-    k(KC::KBD_JP_CLOSE_BRACKET),
+    k(KC::KBD_JP_OPEN_BRACKET),
     // R3
-    nop(),
+    RBRACE,
     k(KC::KBD_1),
     k(KC::KBD_2),
     k(KC::KBD_3),
     k(KC::KBD_0),
-    nop(),
+    k(KC::KBD_JP_CLOSE_BRACKET),
     // R4
     m(ModifierKey::SHIFT1),
     nop(),

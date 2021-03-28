@@ -1,5 +1,5 @@
 use embedded_hal::digital::v2::{InputPin, OutputPin};
-use stm32f1xx_hal::gpio;
+use stm32l4xx_hal::gpio;
 
 type R1 = gpio::gpiob::PB1<gpio::Output<gpio::PushPull>>;
 type R2 = gpio::gpiob::PB5<gpio::Output<gpio::PushPull>>;
@@ -9,9 +9,9 @@ type R4 = gpio::gpiob::PB9<gpio::Output<gpio::PushPull>>;
 type C1 = gpio::gpiob::PB13<gpio::Input<gpio::PullUp>>;
 type C2 = gpio::gpiob::PB14<gpio::Input<gpio::PullUp>>;
 type C3 = gpio::gpiob::PB15<gpio::Input<gpio::PullUp>>;
-type C4 = gpio::gpioa::PA8<gpio::Input<gpio::PullUp>>;
-type C5 = gpio::gpioa::PA9<gpio::Input<gpio::PullUp>>;
-type C6 = gpio::gpioa::PA10<gpio::Input<gpio::PullUp>>;
+type C4 = gpio::gpiob::PB2<gpio::Input<gpio::PullUp>>;
+type C5 = gpio::gpiob::PB7<gpio::Input<gpio::PullUp>>;
+type C6 = gpio::gpiob::PB4<gpio::Input<gpio::PullUp>>;
 
 // Change pin assigns carefully, do not miss all of MODE, CNF, ODR, IDR.
 #[derive(PartialEq, Eq)]
