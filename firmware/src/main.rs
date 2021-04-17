@@ -1,6 +1,6 @@
 #![no_std]
 #![no_main]
-#![deny(warnings)]
+// #![deny(warnings)]
 
 #[cfg(not(feature = "semihosting"))]
 extern crate panic_halt;
@@ -19,15 +19,16 @@ use stm32l4xx_hal::{gpio, prelude::*, stm32};
 use usb_device::bus;
 use usb_device::prelude::*;
 
+use direct_drive::Switches;
 use hid::HIDClass;
 use key_stream::ring_buffer::RingBuffer;
 use key_stream::KeyStream;
-use matrix::Matrix;
 use peer::Peer;
 use stm32l4xx_hal::rcc::{PllConfig, PllDivider};
 
+mod direct_drive;
 mod hid;
-mod matrix;
+// mod matrix;
 mod peer;
 
 type LED = gpio::gpioc::PC13<gpio::Output<gpio::PushPull>>;
@@ -46,7 +47,7 @@ const APP: () = {
         usb_dev: UsbDevice<'static, UsbBusType>,
         hid: HIDClass<'static, UsbBusType>,
         stream: KeyStream,
-        matrix: Matrix,
+        switches: Switches,
         peer: Peer,
         report_buffer: RingBuffer<[u8; 8]>,
     }
@@ -83,11 +84,6 @@ const APP: () = {
         enable_crs();
         enable_usb_pwr();
 
-        let mut o = gpiob
-            .pb3
-            .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
-        o.set_high().unwrap();
-
         let usb_dm = gpioa.pa11.into_af10(&mut gpioa.moder, &mut gpioa.afrh);
         let usb_dp = gpioa.pa12.into_af10(&mut gpioa.moder, &mut gpioa.afrh);
 
@@ -109,36 +105,33 @@ const APP: () = {
             .build();
 
         let stream = KeyStream::new();
-        let matrix = Matrix::new(
-            gpiob
-                .pb1
-                .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper),
-            gpiob
-                .pb5
-                .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper),
+        let switches = Switches::new(
             gpiob
                 .pb8
-                .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper),
-            gpiob
-                .pb9
-                .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper),
-            gpiob
-                .pb13
-                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
-            gpiob
-                .pb14
-                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
-            gpiob
-                .pb15
-                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
-            gpiob
-                .pb2
                 .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
             gpiob
                 .pb7
                 .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
             gpiob
+                .pb6
+                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            gpiob
+                .pb5
+                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            gpiob
                 .pb4
+                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            gpiob
+                .pb3
+                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            gpiob
+                .pb2
+                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            gpiob
+                .pb1
+                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            gpiob
+                .pb0
                 .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
         );
 
@@ -175,13 +168,13 @@ const APP: () = {
             usb_dev,
             hid,
             stream,
-            matrix,
+            switches,
             peer,
             report_buffer: RingBuffer::new([0; 8]),
         }
     }
 
-    #[task(schedule = [read_loop], resources = [led, stream, matrix, peer], priority = 1)]
+    #[task(schedule = [read_loop], resources = [led, stream, switches, peer], priority = 1)]
     fn read_loop(mut cx: read_loop::Context) {
         cx.schedule
             .read_loop(Instant::now() + READ_PERIOD.cycles())
@@ -189,10 +182,10 @@ const APP: () = {
 
         let led = &mut cx.resources.led;
         let stream = &mut cx.resources.stream;
-        let matrix = &mut cx.resources.matrix;
+        let switches = &mut cx.resources.switches;
         let peer = &mut cx.resources.peer;
 
-        let mat = matrix.scan();
+        let mat = switches.scan();
         let (ok, per) = peer.read();
         if ok {
             led.set_high().unwrap();
