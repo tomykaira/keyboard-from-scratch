@@ -155,11 +155,11 @@ impl<SCL: SclPin<I2C1>, SDA: SdaPin<I2C1>> I2CSlave<SCL, SDA> {
     }
 
     pub fn poll(&mut self, dbg1: &mut Dbg1, dbg2: &mut Dbg2, dbg3: &mut Dbg3) {
-        // if self.i2c.cr1.read().pe().bit_is_set() && self.i2c.oar1.read().oa1en().bit_is_set() {
-        //     dbg1.set_high().unwrap();
-        // } else {
-        //     dbg1.set_low().unwrap();
-        // }
+        if self.i2c.isr.read().rxne() {
+            dbg1.set_high().unwrap();
+        } else {
+            dbg1.set_low().unwrap();
+        }
         if self.i2c.isr.read().berr().bit_is_set()
             || self.i2c.isr.read().nackf().bit_is_set()
             || self.i2c.isr.read().arlo().bit_is_set()
@@ -189,9 +189,9 @@ impl<SCL: SclPin<I2C1>, SDA: SdaPin<I2C1>> I2CSlave<SCL, SDA> {
                 hprintln!("a").unwrap();
                 if self.i2c.isr.read().addr().is_match_() {
                     if self.i2c.isr.read().dir().is_write() {
-                        self.transfer_state = TransferState::WaitingTxis;
-                    } else {
                         self.transfer_state = TransferState::WaitingRxne;
+                    } else {
+                        self.transfer_state = TransferState::WaitingTxis;
                     }
                     self.i2c.icr.write(|w| w.addrcf().set_bit());
                 }
