@@ -232,7 +232,7 @@ const APP: () = {
             if slave.get_received_data().len() > 0 {
                 #[cfg(feature = "semihosting")]
                 hprintln!("h");
-                slave.transmit(apb1, &[0x12u8]);
+                // slave.transmit(apb1, &[0x12u8]);
                 // dbg1.set_low().unwrap();
             } else {
                 // dbg1.set_high().unwrap();
