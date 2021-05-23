@@ -189,9 +189,9 @@ impl<SCL: SclPin<I2C1>, SDA: SdaPin<I2C1>> I2CSlave<SCL, SDA> {
                 hprintln!("a").unwrap();
                 if self.i2c.isr.read().addr().is_match_() {
                     if self.i2c.isr.read().dir().is_write() {
-                        self.transfer_state = TransferState::WaitingRxne;
-                    } else {
                         self.transfer_state = TransferState::WaitingTxis;
+                    } else {
+                        self.transfer_state = TransferState::WaitingRxne;
                     }
                     self.i2c.icr.write(|w| w.addrcf().set_bit());
                 }
