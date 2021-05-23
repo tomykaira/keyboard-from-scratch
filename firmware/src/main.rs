@@ -259,6 +259,7 @@ const APP: () = {
             Some(p) => {
                 dbg1.set_high().unwrap();
                 let (ok, per) = p.read();
+                dbg2.set_high().unwrap();
                 if ok {
                     dbg1.set_high().unwrap();
                     dbg2.set_high().unwrap();
