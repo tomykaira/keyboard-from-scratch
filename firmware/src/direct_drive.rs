@@ -8,9 +8,9 @@ type SW3 = gpio::gpiob::PB6<gpio::Input<gpio::PullUp>>;
 type SW4 = gpio::gpiob::PB5<gpio::Input<gpio::PullUp>>;
 type SW5 = gpio::gpiob::PB4<gpio::Input<gpio::PullUp>>;
 type SW6 = gpio::gpiob::PB3<gpio::Input<gpio::PullUp>>;
-type SW7 = gpio::gpiob::PB2<gpio::Input<gpio::PullUp>>;
-type SW8 = gpio::gpiob::PB1<gpio::Input<gpio::PullUp>>;
-type SW9 = gpio::gpiob::PB0<gpio::Input<gpio::PullUp>>;
+// type SW7 = gpio::gpiob::PB2<gpio::Input<gpio::PullUp>>;
+// type SW8 = gpio::gpiob::PB1<gpio::Input<gpio::PullUp>>;
+// type SW9 = gpio::gpiob::PB0<gpio::Input<gpio::PullUp>>;
 
 pub struct Switches {
     sw1: SW1,
@@ -19,9 +19,9 @@ pub struct Switches {
     sw4: SW4,
     sw5: SW5,
     sw6: SW6,
-    sw7: SW7,
-    sw8: SW8,
-    sw9: SW9,
+    // sw7: SW7,
+    // sw8: SW8,
+    // sw9: SW9,
 }
 
 impl Switches {
@@ -32,9 +32,9 @@ impl Switches {
         sw4: SW4,
         sw5: SW5,
         sw6: SW6,
-        sw7: SW7,
-        sw8: SW8,
-        sw9: SW9,
+        // sw7: SW7,
+        // sw8: SW8,
+        // sw9: SW9,
     ) -> Switches {
         Switches {
             sw1,
@@ -43,9 +43,9 @@ impl Switches {
             sw4,
             sw5,
             sw6,
-            sw7,
-            sw8,
-            sw9,
+            // sw7,
+            // sw8,
+            // sw9,
         }
     }
 
@@ -77,18 +77,18 @@ impl Switches {
             vec[off] = 0x23;
             off += 1;
         }
-        if self.sw7.is_low().unwrap() {
-            vec[off] = 0x31;
-            off += 1;
-        }
-        if self.sw8.is_low().unwrap() {
-            vec[off] = 0x32;
-            off += 1;
-        }
-        if self.sw9.is_low().unwrap() {
-            vec[off] = 0x33;
-            off += 1;
-        }
+        // if self.sw7.is_low().unwrap() {
+        //     vec[off] = 0x31;
+        //     off += 1;
+        // }
+        // if self.sw8.is_low().unwrap() {
+        //     vec[off] = 0x32;
+        //     off += 1;
+        // }
+        // if self.sw9.is_low().unwrap() {
+        //     vec[off] = 0x33;
+        //     off += 1;
+        // }
         return vec;
     }
 }

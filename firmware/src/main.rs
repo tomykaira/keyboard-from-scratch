@@ -19,16 +19,19 @@ use stm32l4xx_hal::{gpio, prelude::*, stm32};
 use usb_device::bus;
 use usb_device::prelude::*;
 
+use crate::i2c_slave::I2CSlave;
 use direct_drive::Switches;
 use hid::HIDClass;
 use key_stream::ring_buffer::RingBuffer;
 use key_stream::KeyStream;
 use peer::Peer;
-use stm32l4xx_hal::rcc::{PllConfig, PllDivider};
+use stm32l4xx_hal::gpio::{Alternate, OpenDrain, Output, PA10, PA9};
+use stm32l4xx_hal::rcc::{PllConfig, PllDivider, APB1R1};
 
 mod direct_drive;
 mod hid;
 // mod matrix;
+mod i2c_slave;
 mod peer;
 
 type LED = gpio::gpioc::PC13<gpio::Output<gpio::PushPull>>;
@@ -48,11 +51,21 @@ const APP: () = {
         hid: HIDClass<'static, UsbBusType>,
         stream: KeyStream,
         switches: Switches,
-        peer: Peer,
+        peer: Option<Peer>,
         report_buffer: RingBuffer<[u8; 8]>,
+        slave: Option<
+            I2CSlave<
+                PA9<Alternate<stm32l4xx_hal::gpio::AF4, Output<OpenDrain>>>,
+                PA10<Alternate<stm32l4xx_hal::gpio::AF4, Output<OpenDrain>>>,
+            >,
+        >,
+        apb1: APB1R1,
+        dbg1: i2c_slave::Dbg1,
+        dbg2: i2c_slave::Dbg2,
+        dbg3: i2c_slave::Dbg3,
     }
 
-    #[init(schedule = [read_loop, transform_loop, send_loop])]
+    #[init(schedule = [read_loop, transform_loop, send_loop, slave_loop])]
     fn init(mut cx: init::Context) -> init::LateResources {
         static mut USB_BUS: Option<bus::UsbBusAllocator<UsbBusType>> = None;
 
@@ -103,6 +116,15 @@ const APP: () = {
             .serial_number("TEST")
             .device_class(0)
             .build();
+        let dbg1 = gpiob
+            .pb2
+            .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
+        let dbg2 = gpiob
+            .pb1
+            .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
+        let dbg3 = gpiob
+            .pb0
+            .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
 
         let stream = KeyStream::new();
         let switches = Switches::new(
@@ -124,15 +146,15 @@ const APP: () = {
             gpiob
                 .pb3
                 .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
-            gpiob
-                .pb2
-                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
-            gpiob
-                .pb1
-                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
-            gpiob
-                .pb0
-                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            // gpiob
+            //     .pb2
+            //     .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            // gpiob
+            //     .pb1
+            //     .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            // gpiob
+            //     .pb0
+            //     .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
         );
 
         let mut scl = gpioa
@@ -146,21 +168,36 @@ const APP: () = {
             .into_open_drain_output(&mut gpioa.moder, &mut gpioa.otyper);
         sda.internal_pull_up(&mut gpioa.pupdr, true);
         let sda = sda.into_af4(&mut gpioa.moder, &mut gpioa.afrh);
-        let i2c = I2c::i2c1(
-            cx.device.I2C1,
-            (scl, sda),
-            100_000.hz(),
-            clocks,
-            &mut rcc.apb1r1,
-        );
 
-        let peer = Peer::new(i2c);
+        let (peer, slave) = if cfg!(feature = "host") {
+            let i2c = I2c::i2c1(
+                cx.device.I2C1,
+                (scl, sda),
+                100_000.hz(),
+                clocks,
+                &mut rcc.apb1r1,
+            );
 
-        cx.schedule.read_loop(cx.start + READ_PERIOD.cycles()).ok();
-        cx.schedule
-            .transform_loop(cx.start + TRANSFORM_PERIOD.cycles())
-            .ok();
-        cx.schedule.send_loop(cx.start + SEND_PERIOD.cycles()).ok();
+            cx.schedule.read_loop(cx.start + READ_PERIOD.cycles()).ok();
+            cx.schedule
+                .transform_loop(cx.start + TRANSFORM_PERIOD.cycles())
+                .ok();
+            cx.schedule.send_loop(cx.start + SEND_PERIOD.cycles()).ok();
+
+            (Some(Peer::new(i2c)), None)
+        } else {
+            let slave = I2CSlave::i2c1(
+                cx.device.I2C1,
+                (scl, sda),
+                peer::I2C_ADDRESS,
+                100_000.hz(),
+                clocks,
+            );
+
+            cx.schedule.slave_loop(cx.start + 1.cycles()).ok();
+
+            (None, Some(slave))
+        };
 
         init::LateResources {
             led,
@@ -171,10 +208,35 @@ const APP: () = {
             switches,
             peer,
             report_buffer: RingBuffer::new([0; 8]),
+            slave,
+            apb1: rcc.apb1r1,
+            dbg1,
+            dbg2,
+            dbg3,
         }
     }
 
-    #[task(schedule = [read_loop], resources = [led, stream, switches, peer], priority = 1)]
+    #[task(schedule = [slave_loop], resources = [slave, apb1, dbg1, dbg2, dbg3], priority = 1)]
+    fn slave_loop(mut cx: slave_loop::Context) {
+        cx.schedule.slave_loop(Instant::now() + 1.cycles()).ok();
+
+        let slave = &mut cx.resources.slave;
+        let apb1 = &mut cx.resources.apb1;
+        let dbg1 = &mut cx.resources.dbg1;
+        let dbg2 = &mut cx.resources.dbg2;
+        let dbg3 = &mut cx.resources.dbg3;
+
+        if let Some(ref mut slave) = slave {
+            slave.receive_if_idle(apb1);
+            slave.poll(dbg1, dbg2, dbg3);
+            if slave.get_received_data().len() > 0 {
+                #[cfg(feature = "semihosting")]
+                slave.transmit(apb1, &[0x12u8]);
+            }
+        }
+    }
+
+    #[task(schedule = [read_loop], resources = [led, stream, switches, peer, dbg1, dbg2, dbg3], priority = 1)]
     fn read_loop(mut cx: read_loop::Context) {
         cx.schedule
             .read_loop(Instant::now() + READ_PERIOD.cycles())
@@ -184,24 +246,48 @@ const APP: () = {
         let stream = &mut cx.resources.stream;
         let switches = &mut cx.resources.switches;
         let peer = &mut cx.resources.peer;
+        let dbg1 = &mut cx.resources.dbg1;
+        let dbg2 = &mut cx.resources.dbg2;
+        let dbg3 = &mut cx.resources.dbg3;
+
+        dbg1.set_low().unwrap();
+        dbg2.set_low().unwrap();
+        dbg3.set_low().unwrap();
 
         let mat = switches.scan();
-        let (ok, per) = peer.read();
-        if ok {
-            led.set_high().unwrap();
-        } else {
-            led.set_low().unwrap();
-            // match peer.error {
-            //     None => {}
-            //     Some(nb::Error::WouldBlock) => debug(hid, KBD_A),
-            //     Some(nb::Error::Other(i2c::Error::Acknowledge)) => debug(hid, KBD_B),
-            //     Some(nb::Error::Other(i2c::Error::Arbitration)) => debug(hid, KBD_D),
-            //     Some(nb::Error::Other(i2c::Error::Bus)) => debug(hid, KBD_E),
-            //     Some(nb::Error::Other(i2c::Error::Overrun)) => debug(hid, KBD_F),
-            //     Some(nb::Error::Other(i2c::Error::_Extensible)) => debug(hid, KBD_X),
-            // }
+        match peer {
+            Some(p) => {
+                dbg1.set_high().unwrap();
+                let (ok, per) = p.read();
+                if ok {
+                    #[cfg(feature = "semihosting")]
+                    hprintln!("h");
+                    dbg1.set_high().unwrap();
+                    dbg2.set_high().unwrap();
+                } else {
+                    #[cfg(feature = "semihosting")]
+                    hprintln!("v");
+                    dbg1.set_low().unwrap();
+                    dbg2.set_high().unwrap();
+                    // match peer.error {
+                    //     None => {}
+                    //     Some(nb::Error::WouldBlock) => debug(hid, KBD_A),
+                    //     Some(nb::Error::Other(i2c::Error::Acknowledge)) => debug(hid, KBD_B),
+                    //     Some(nb::Error::Other(i2c::Error::Arbitration)) => debug(hid, KBD_D),
+                    //     Some(nb::Error::Other(i2c::Error::Bus)) => debug(hid, KBD_E),
+                    //     Some(nb::Error::Other(i2c::Error::Overrun)) => debug(hid, KBD_F),
+                    //     Some(nb::Error::Other(i2c::Error::_Extensible)) => debug(hid, KBD_X),
+                    // }
+                }
+                if per[0] == 0x12u8 {
+                    dbg3.set_high().unwrap();
+                } else {
+                    dbg3.set_low().unwrap();
+                }
+                stream.push(&mat, &per, DWT::get_cycle_count());
+            }
+            None => (),
         }
-        stream.push(&mat, &per, DWT::get_cycle_count());
     }
 
     #[task(schedule = [transform_loop], resources = [stream, report_buffer], priority = 1)]
@@ -244,7 +330,6 @@ const APP: () = {
 
     extern "C" {
         fn EXTI0();
-        fn I2C1();
     }
 };
 
