@@ -260,15 +260,15 @@ const APP: () = {
                 dbg1.set_high().unwrap();
                 let (ok, per) = p.read();
                 if ok {
-                    #[cfg(feature = "semihosting")]
-                    hprintln!("h");
                     dbg1.set_high().unwrap();
                     dbg2.set_high().unwrap();
-                } else {
                     #[cfg(feature = "semihosting")]
-                    hprintln!("v");
+                    hprintln!("h");
+                } else {
                     dbg1.set_low().unwrap();
                     dbg2.set_high().unwrap();
+                    #[cfg(feature = "semihosting")]
+                    hprintln!("v");
                     // match peer.error {
                     //     None => {}
                     //     Some(nb::Error::WouldBlock) => debug(hid, KBD_A),
