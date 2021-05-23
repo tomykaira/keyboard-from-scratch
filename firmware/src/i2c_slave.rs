@@ -168,7 +168,7 @@ impl<SCL: SclPin<I2C1>, SDA: SdaPin<I2C1>> I2CSlave<SCL, SDA> {
         } else {
             dbg2.set_low().unwrap();
         }
-        if self.i2c.isr.read().rxne().is_empty() || self.i2c.isr.read().txe().is_empty() {
+        if self.i2c.isr.read().addr().is_match_() {
             dbg3.set_high().unwrap();
         } else {
             dbg3.set_low().unwrap();
