@@ -258,8 +258,8 @@ const APP: () = {
         match peer {
             Some(p) => {
                 dbg1.set_high().unwrap();
-                let (ok, per) = p.read();
                 dbg2.set_high().unwrap();
+                let (ok, per) = p.read();
                 if ok {
                     dbg1.set_high().unwrap();
                     dbg2.set_high().unwrap();
