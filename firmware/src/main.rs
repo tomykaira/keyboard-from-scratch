@@ -279,7 +279,7 @@ const APP: () = {
                     //     Some(nb::Error::Other(i2c::Error::_Extensible)) => debug(hid, KBD_X),
                     // }
                 }
-                if per[0] == 0x12u8 {
+                if per[0] == 0x12u8 || mat[0] != 0 {
                     dbg3.set_high().unwrap();
                 } else {
                     dbg3.set_low().unwrap();
