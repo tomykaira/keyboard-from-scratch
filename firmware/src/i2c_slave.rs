@@ -22,7 +22,7 @@ pub enum TransferState {
     Idle,
     WaitingAddress,
     WaitingTxis,
-    WaitingRxne,
+    WaitingTransfer,
 }
 
 const BUFFER_SIZE: usize = 32;
@@ -188,34 +188,20 @@ impl<SCL: SclPin<I2C1>, SDA: SdaPin<I2C1>> I2CSlave<SCL, SDA> {
                 #[cfg(feature = "semihosting")]
                 hprintln!("a").unwrap();
                 if self.i2c.isr.read().addr().is_match_() {
-                    if self.i2c.isr.read().dir().is_write() {
-                        self.transfer_state = TransferState::WaitingRxne;
-                    } else {
-                        self.transfer_state = TransferState::WaitingTxis;
-                    }
+                    self.transfer_state = TransferState::WaitingTransfer;
                     self.i2c.icr.write(|w| w.addrcf().set_bit());
                 }
             }
-            TransferState::WaitingTxis => {
+            TransferState::WaitingTransfer => {
                 #[cfg(feature = "semihosting")]
                 hprintln!("t {}", self.wbuf.index).unwrap();
-                if self.wbuf.is_empty() {
-                    self.transfer_state = TransferState::Idle;
-                } else if self.i2c.isr.read().stopf().is_stop() {
-                    self.transfer_state = TransferState::Idle;
-                } else if self.i2c.isr.read().txis().is_empty() {
-                    let v = self.wbuf.get();
-                    self.write(v);
-                }
-            }
-            TransferState::WaitingRxne => {
-                #[cfg(feature = "semihosting")]
-                hprintln!("r").unwrap();
                 if self.i2c.isr.read().rxne().is_not_empty() {
                     self.rbuf.put(self.read());
-                }
-                if self.i2c.isr.read().stopf().is_stop() {
+                } else if self.i2c.isr.read().stopf().is_stop() {
                     self.transfer_state = TransferState::Idle;
+                } else if !self.wbuf.is_empty() && self.i2c.isr.read().txis().is_empty() {
+                    let v = self.wbuf.get();
+                    self.write(v);
                 }
             }
         };
