@@ -163,6 +163,11 @@ impl<SCL: SclPin<I2C1>, SDA: SdaPin<I2C1>> I2CSlave<SCL, SDA> {
         if self.i2c.isr.read().berr().bit_is_set()
             || self.i2c.isr.read().nackf().bit_is_set()
             || self.i2c.isr.read().arlo().bit_is_set()
+            || self.i2c.isr.read().alert().bit_is_set()
+            || self.i2c.isr.read().timeout().bit_is_set()
+            || self.i2c.isr.read().pecerr().bit_is_set()
+            || self.i2c.isr.read().ovr().bit_is_set()
+            || self.i2c.isr.read().stopf().bit_is_set()
         {
             dbg2.set_high().unwrap();
         } else {
