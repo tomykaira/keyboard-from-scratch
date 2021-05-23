@@ -258,7 +258,6 @@ const APP: () = {
         match peer {
             Some(p) => {
                 dbg1.set_high().unwrap();
-                dbg3.set_high().unwrap();
                 let (ok, per) = p.read();
                 if ok {
                     dbg1.set_high().unwrap();
@@ -281,9 +280,9 @@ const APP: () = {
                     // }
                 }
                 if per[0] == 0x12u8 {
-                    dbg3.set_high().unwrap();
+                    dbg2.set_high().unwrap();
                 } else {
-                    dbg3.set_low().unwrap();
+                    dbg2.set_low().unwrap();
                 }
                 stream.push(&mat, &per, DWT::get_cycle_count());
             }
