@@ -38,33 +38,11 @@ impl Peer {
             }
             Ok(_) => {
                 let mut pos = [0u8; 8];
-                let mut off = 0;
                 for i in 0..ROWS_PER_HAND {
-                    let value = self.serial_sub_buffer[i as usize];
-                    for j in 0..8 {
-                        let bit = 1 << j;
-                        if (value & bit) != 0 && off < 8 {
-                            pos[off] = encode(i, bit);
-                            off += 1;
-                        }
-                    }
+                    pos[i as usize] = self.serial_sub_buffer[i as usize];
                 }
                 (true, pos)
             }
         }
     }
-}
-
-fn encode(row: u8, col: u8) -> u8 {
-    let c = match col {
-        32 => 1,
-        2 => 2,
-        4 => 3,
-        8 => 4,
-        16 => 5,
-        1 => 6,
-        _ => 0,
-    };
-    // Set top bit to indicate peer.
-    return 0x80u8 | ((row + 1) << 4) | c;
 }
