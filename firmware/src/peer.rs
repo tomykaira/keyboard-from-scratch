@@ -28,10 +28,7 @@ impl Peer {
 
     /// (no_error?, keys)
     pub fn read(&mut self) -> (bool, [u8; 8]) {
-        match self
-            .i2c
-            .write_read(I2C_ADDRESS, &[0x0u8], &mut self.serial_sub_buffer)
-        {
+        match self.i2c.write(I2C_ADDRESS, &[0x0u8]) {
             Err(err) => {
                 self.error = Some(err);
                 (false, [0u8; 8])
