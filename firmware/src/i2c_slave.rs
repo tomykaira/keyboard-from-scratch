@@ -21,7 +21,6 @@ pub type Dbg3 = gpio::gpiob::PB0<gpio::Output<gpio::PushPull>>;
 pub enum TransferState {
     Idle,
     WaitingAddress,
-    WaitingTxis,
     WaitingTransfer,
 }
 
