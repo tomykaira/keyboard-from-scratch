@@ -233,9 +233,9 @@ const APP: () = {
                 #[cfg(feature = "semihosting")]
                 hprintln!("h");
                 slave.transmit(apb1, &[0x12u8]);
-                dbg1.set_high().unwrap();
-            } else {
                 dbg1.set_low().unwrap();
+            } else {
+                dbg1.set_high().unwrap();
             }
         }
     }
