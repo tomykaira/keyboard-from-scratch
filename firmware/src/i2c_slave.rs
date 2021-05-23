@@ -115,7 +115,9 @@ impl<SCL: SclPin<I2C1>, SDA: SdaPin<I2C1>> I2CSlave<SCL, SDA> {
         self.i2c = f_i2c;
         self.pins = f_pins;
 
-        self.i2c.cr1.write(|w| w.gcen().enabled().pe().enabled());
+        self.i2c
+            .cr1
+            .write(|w| w.gcen().enabled().stopie().enabled().pe().enabled());
 
         self.i2c.oar1.write(|w| w.oa1en().disabled());
 
