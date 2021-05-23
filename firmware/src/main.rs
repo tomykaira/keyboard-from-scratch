@@ -258,16 +258,16 @@ const APP: () = {
         match peer {
             Some(p) => {
                 dbg1.set_high().unwrap();
-                dbg2.set_high().unwrap();
+                dbg3.set_high().unwrap();
                 let (ok, per) = p.read();
                 if ok {
                     dbg1.set_high().unwrap();
-                    dbg2.set_high().unwrap();
+                    dbg3.set_high().unwrap();
                     #[cfg(feature = "semihosting")]
                     hprintln!("h");
                 } else {
                     dbg1.set_low().unwrap();
-                    dbg2.set_high().unwrap();
+                    dbg3.set_high().unwrap();
                     #[cfg(feature = "semihosting")]
                     hprintln!("v");
                     // match peer.error {
