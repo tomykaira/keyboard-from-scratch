@@ -17,12 +17,7 @@ pub type Dbg1 = gpio::gpiob::PB2<gpio::Output<gpio::PushPull>>;
 pub type Dbg2 = gpio::gpiob::PB1<gpio::Output<gpio::PushPull>>;
 pub type Dbg3 = gpio::gpiob::PB0<gpio::Output<gpio::PushPull>>;
 
-#[derive(PartialEq, Debug)]
-pub enum TransferState {
-    Idle,
-    WaitingAddress,
-    WaitingTransfer,
-}
+const MESSAGE_SIZE: usize = 1;
 
 const BUFFER_SIZE: usize = 32;
 
@@ -69,8 +64,7 @@ impl FixedSizeBuffer {
 pub struct I2CSlave<SCL, SDA> {
     i2c: I2C1,
     wbuf: FixedSizeBuffer,
-    rbuf: FixedSizeBuffer,
-    pub transfer_state: TransferState,
+    next_wbuf: [u8; MESSAGE_SIZE],
     pins: (SCL, SDA),
     address: u8,
     freq: Hertz,
@@ -86,8 +80,7 @@ impl<SCLPIN, SDAPIN> I2CSlave<SCLPIN, SDAPIN> {
         I2CSlave {
             i2c: i2c,
             wbuf: FixedSizeBuffer::new(),
-            rbuf: FixedSizeBuffer::new(),
-            transfer_state: TransferState::Idle,
+            next_wbuf: [0u8; MESSAGE_SIZE],
             pins: pins,
             address,
             freq,
@@ -101,7 +94,7 @@ impl<SCLPIN, SDAPIN> I2CSlave<SCLPIN, SDAPIN> {
 type I2cRegisterBlock = stm32l4xx_hal::pac::i2c1::RegisterBlock;
 
 impl<SCL: SclPin<I2C1>, SDA: SdaPin<I2C1>> I2CSlave<SCL, SDA> {
-    fn slave_initialization(&mut self, apb1: &mut APB1R1) {
+    pub fn slave_initialization(&mut self, apb1: &mut APB1R1) {
         // Borrow I2C initialization from hal::i2c.
         // Free hal::i2c right after initialize.
         let i2c = mem::replace(&mut self.i2c, unsafe {
@@ -136,23 +129,8 @@ impl<SCL: SclPin<I2C1>, SDA: SdaPin<I2C1>> I2CSlave<SCL, SDA> {
         self.i2c.txdr.write(|w| w.txdata().bits(value));
     }
 
-    pub fn receive_if_idle(&mut self, apb1: &mut APB1R1) {
-        if self.transfer_state == TransferState::Idle {
-            self.rbuf = FixedSizeBuffer::new();
-            self.slave_initialization(apb1);
-            self.transfer_state = TransferState::WaitingAddress;
-        }
-    }
-
-    pub fn transmit(&mut self, apb1: &mut APB1R1, buffer: &[u8]) {
-        self.wbuf = FixedSizeBuffer::new();
-        for item in buffer {
-            self.wbuf.put(*item);
-        }
-        self.wbuf.rewind();
-
-        self.slave_initialization(apb1);
-        self.transfer_state = TransferState::WaitingAddress;
+    pub fn transmit(&mut self, buffer: &[u8; MESSAGE_SIZE]) {
+        self.next_wbuf = *buffer;
     }
 
     pub fn poll(&mut self, dbg1: &mut Dbg1, dbg2: &mut Dbg2, dbg3: &mut Dbg3) {
@@ -180,39 +158,18 @@ impl<SCL: SclPin<I2C1>, SDA: SdaPin<I2C1>> I2CSlave<SCL, SDA> {
             dbg3.set_low().unwrap();
         }
 
-        match self.transfer_state {
-            TransferState::Idle => {
-                #[cfg(feature = "semihosting")]
-                hprintln!("i").unwrap();
-            } // no tasks
-            TransferState::WaitingAddress => {
-                #[cfg(feature = "semihosting")]
-                hprintln!("a").unwrap();
-                if self.i2c.isr.read().addr().is_match_() {
-                    self.transfer_state = TransferState::WaitingTransfer;
-                    self.i2c.icr.write(|w| w.addrcf().set_bit());
-                }
+        if self.i2c.isr.read().addr().is_match_() {
+            self.i2c.icr.write(|w| w.addrcf().set_bit());
+            self.wbuf = FixedSizeBuffer::new();
+            for b in &self.next_wbuf {
+                self.wbuf.put(*b);
             }
-            TransferState::WaitingTransfer => {
-                #[cfg(feature = "semihosting")]
-                hprintln!("t {}", self.wbuf.index).unwrap();
-                if self.i2c.isr.read().rxne().is_not_empty() {
-                    self.rbuf.put(self.read());
-                } else if self.i2c.isr.read().stopf().is_stop() {
-                    self.transfer_state = TransferState::Idle;
-                } else if !self.wbuf.is_empty() && self.i2c.isr.read().txis().is_empty() {
-                    let v = self.wbuf.get();
-                    self.write(v);
-                }
-            }
-        };
-    }
-
-    pub fn get_received_data(&mut self) -> &[u8] {
-        if self.transfer_state == TransferState::Idle {
-            self.rbuf.copy()
-        } else {
-            &[]
+            self.wbuf.rewind();
+            self.next_wbuf = [0u8; MESSAGE_SIZE];
+        } else if self.i2c.isr.read().stopf().is_stop() {
+        } else if !self.wbuf.is_empty() && self.i2c.isr.read().txis().is_empty() {
+            let v = self.wbuf.get();
+            self.write(v);
         }
     }
 

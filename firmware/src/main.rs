@@ -186,13 +186,14 @@ const APP: () = {
 
             (Some(Peer::new(i2c)), None)
         } else {
-            let slave = I2CSlave::i2c1(
+            let mut slave = I2CSlave::i2c1(
                 cx.device.I2C1,
                 (scl, sda),
                 peer::I2C_ADDRESS,
                 100_000.hz(),
                 clocks,
             );
+            slave.slave_initialization(&mut rcc.apb1r1);
 
             cx.schedule.slave_loop(cx.start + 1.cycles()).ok();
 
@@ -227,16 +228,8 @@ const APP: () = {
         let dbg3 = &mut cx.resources.dbg3;
 
         if let Some(ref mut slave) = slave {
-            slave.receive_if_idle(apb1);
+            slave.transmit(&[0x12u8]);
             slave.poll(dbg1, dbg2, dbg3);
-            if slave.get_received_data().len() > 0 {
-                #[cfg(feature = "semihosting")]
-                hprintln!("h");
-                // slave.transmit(apb1, &[0x12u8]);
-                // dbg1.set_low().unwrap();
-            } else {
-                // dbg1.set_high().unwrap();
-            }
         }
     }
 
