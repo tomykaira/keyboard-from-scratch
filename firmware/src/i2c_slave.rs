@@ -116,14 +116,15 @@ impl<SCL: SclPin<I2C1>, SDA: SdaPin<I2C1>> I2CSlave<SCL, SDA> {
         self.i2c = f_i2c;
         self.pins = f_pins;
 
-        self.i2c.oar1.write(|w| {
-            w.oa1en()
-                .enabled()
-                .oa1()
-                .bits((self.address as u16) << 1)
-                .oa1mode()
-                .bit7()
-        });
+        self.i2c.cr1.write(|w| w.pe().enabled());
+
+        self.i2c.oar1.write(|w| w.oa1en().disabled());
+
+        self.i2c
+            .oar1
+            .write(|w| w.oa1().bits((self.address as u16) << 1).oa1mode().bit7());
+
+        self.i2c.oar1.write(|w| w.oa1en().enabled());
     }
 
     fn read(&self) -> u8 {
@@ -154,31 +155,43 @@ impl<SCL: SclPin<I2C1>, SDA: SdaPin<I2C1>> I2CSlave<SCL, SDA> {
     }
 
     pub fn poll(&mut self, dbg1: &mut Dbg1, dbg2: &mut Dbg2, dbg3: &mut Dbg3) {
-        dbg1.set_low().unwrap();
-        dbg2.set_low().unwrap();
-        dbg3.set_low().unwrap();
+        if self.i2c.cr1.read().pe().bit_is_set() && self.i2c.oar1.read().oa1en().bit_is_set() {
+            dbg1.set_high().unwrap();
+        } else {
+            dbg1.set_low().unwrap();
+        }
+        if self.i2c.isr.read().berr().bit_is_set()
+            || self.i2c.isr.read().nackf().bit_is_set()
+            || self.i2c.isr.read().arlo().bit_is_set()
+        {
+            dbg2.set_high().unwrap();
+        } else {
+            dbg2.set_low().unwrap();
+        }
+        if self.i2c.isr.read().rxne().is_empty() || self.i2c.isr.read().txe().is_empty() {
+            dbg3.set_high().unwrap();
+        } else {
+            dbg3.set_low().unwrap();
+        }
+
         match self.transfer_state {
             TransferState::Idle => {
                 #[cfg(feature = "semihosting")]
                 hprintln!("i").unwrap();
-                dbg1.set_high().unwrap();
             } // no tasks
             TransferState::WaitingAddress => {
-                dbg2.set_high().unwrap();
                 #[cfg(feature = "semihosting")]
                 hprintln!("a").unwrap();
                 if self.i2c.isr.read().addr().is_match_() {
                     if self.i2c.isr.read().dir().is_write() {
-                        self.transfer_state = TransferState::WaitingTxis
+                        self.transfer_state = TransferState::WaitingRxne;
                     } else {
-                        self.transfer_state = TransferState::WaitingRxne
+                        self.transfer_state = TransferState::WaitingTxis;
                     }
                     self.i2c.icr.write(|w| w.addrcf().set_bit());
                 }
             }
             TransferState::WaitingTxis => {
-                dbg2.set_high().unwrap();
-                dbg3.set_high().unwrap();
                 #[cfg(feature = "semihosting")]
                 hprintln!("t {}", self.wbuf.index).unwrap();
                 if self.wbuf.is_empty() {
@@ -191,7 +204,6 @@ impl<SCL: SclPin<I2C1>, SDA: SdaPin<I2C1>> I2CSlave<SCL, SDA> {
                 }
             }
             TransferState::WaitingRxne => {
-                dbg3.set_high().unwrap();
                 #[cfg(feature = "semihosting")]
                 hprintln!("r").unwrap();
                 if self.i2c.isr.read().rxne().is_empty() {

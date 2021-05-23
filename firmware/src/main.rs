@@ -231,7 +231,9 @@ const APP: () = {
             slave.poll(dbg1, dbg2, dbg3);
             if slave.get_received_data().len() > 0 {
                 #[cfg(feature = "semihosting")]
+                hprintln!("h");
                 slave.transmit(apb1, &[0x12u8]);
+            } else {
             }
         }
     }
