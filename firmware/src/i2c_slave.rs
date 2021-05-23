@@ -134,7 +134,7 @@ impl<SCL: SclPin<I2C1>, SDA: SdaPin<I2C1>> I2CSlave<SCL, SDA> {
     }
 
     pub fn poll(&mut self, dbg1: &mut Dbg1, dbg2: &mut Dbg2, dbg3: &mut Dbg3) {
-        if self.i2c.isr.read().dir().is_write() {
+        if self.i2c.cr1.read().pe().bit_is_set() && self.i2c.oar1.read().oa1en().is_enabled() {
             dbg1.set_high().unwrap();
         } else {
             dbg1.set_low().unwrap();
