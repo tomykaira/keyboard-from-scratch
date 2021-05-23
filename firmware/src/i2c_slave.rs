@@ -198,7 +198,6 @@ impl<SCL: SclPin<I2C1>, SDA: SdaPin<I2C1>> I2CSlave<SCL, SDA> {
                 hprintln!("t {}", self.wbuf.index).unwrap();
                 if self.i2c.isr.read().rxne().is_not_empty() {
                     self.rbuf.put(self.read());
-                    self.transfer_state = TransferState::Idle;
                 } else if self.i2c.isr.read().stopf().is_stop() {
                     self.transfer_state = TransferState::Idle;
                 } else if !self.wbuf.is_empty() && self.i2c.isr.read().txis().is_empty() {
