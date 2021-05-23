@@ -211,7 +211,7 @@ impl<SCL: SclPin<I2C1>, SDA: SdaPin<I2C1>> I2CSlave<SCL, SDA> {
             TransferState::WaitingRxne => {
                 #[cfg(feature = "semihosting")]
                 hprintln!("r").unwrap();
-                if self.i2c.isr.read().rxne().is_empty() {
+                if self.i2c.isr.read().rxne().is_not_empty() {
                     self.rbuf.put(self.read());
                 }
                 if self.i2c.isr.read().stopf().is_stop() {
