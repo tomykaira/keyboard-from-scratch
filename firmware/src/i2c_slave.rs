@@ -155,7 +155,7 @@ impl<SCL: SclPin<I2C1>, SDA: SdaPin<I2C1>> I2CSlave<SCL, SDA> {
     }
 
     pub fn poll(&mut self, dbg1: &mut Dbg1, dbg2: &mut Dbg2, dbg3: &mut Dbg3) {
-        if self.i2c.isr.read().rxne() {
+        if self.i2c.isr.read().rxne().is_not_empty() {
             dbg1.set_high().unwrap();
         } else {
             dbg1.set_low().unwrap();
