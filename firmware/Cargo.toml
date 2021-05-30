@@ -15,8 +15,9 @@ generic-array = "0.13"
 nb = "0.1.1"
 panic-halt = "0.2"
 panic-semihosting = { version = "0.5", optional = true }
-stm32l4 = { version = "0.12.1", features = ["rt", "stm32l4x2"] }
-stm32l4xx-hal = { version = "0.6.0", features = ["stm32l4x2", "stm32-usbd", "rt"] }
+stm32l4 = { version = "0.13.0", features = ["rt", "stm32l4x2"] }
+# https://github.com/stm32-rs/stm32l4xx-hal/commit/616b77061df80d204d87f8730324d9023301e659#diff-a0188da217f7d7a7717e82f613ce4e305655787f4b8900c577c47d711b4d27ea
+stm32l4xx-hal = { git = "https://github.com/stm32-rs/stm32l4xx-hal", branch = "master", features = ["stm32l4x2", "stm32-usbd", "rt"] }
 usb-device = "0.2.4"
 
 key_stream = { path = "key_stream" }
@@ -31,9 +32,18 @@ features = ["cortex-m"]
 
 [features]
 semihosting = ["cortex-m-semihosting", "panic-semihosting"]
+host = []
 
 [[bin]]
-name = "firmware"
+name = "firmware-remote"
+path = "src/main.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "firmware-host"
+path = "src/main.rs"
+required-features = ["host"]
 test = false
 bench = false
 

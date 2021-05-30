@@ -19,19 +19,20 @@ use stm32l4xx_hal::{gpio, prelude::*, stm32};
 use usb_device::bus;
 use usb_device::prelude::*;
 
+use crate::i2c_slave::I2CSlave;
 use direct_drive::Switches;
 use hid::HIDClass;
 use key_stream::ring_buffer::RingBuffer;
 use key_stream::KeyStream;
 use peer::Peer;
-use stm32l4xx_hal::rcc::{PllConfig, PllDivider};
+use stm32l4xx_hal::gpio::{Alternate, OpenDrain, Output, PA10, PA9};
+use stm32l4xx_hal::rcc::{PllConfig, PllDivider, APB1R1};
 
 mod direct_drive;
 mod hid;
 // mod matrix;
+mod i2c_slave;
 mod peer;
-
-type LED = gpio::gpioc::PC13<gpio::Output<gpio::PushPull>>;
 
 // Do not change CLOCK while using STM32L412.
 const CLOCK: u32 = 48; // MHz
@@ -42,17 +43,25 @@ const SEND_PERIOD: u32 = READ_PERIOD; // 1ms
 #[rtic::app(device = stm32l4xx_hal::stm32, peripherals = true, monotonic = rtic::cyccnt::CYCCNT)]
 const APP: () = {
     struct Resources {
-        led: LED,
-
-        usb_dev: UsbDevice<'static, UsbBusType>,
-        hid: HIDClass<'static, UsbBusType>,
+        usb_dev: Option<UsbDevice<'static, UsbBusType>>,
+        hid: Option<HIDClass<'static, UsbBusType>>,
         stream: KeyStream,
         switches: Switches,
-        peer: Peer,
+        peer: Option<Peer>,
         report_buffer: RingBuffer<[u8; 8]>,
+        slave: Option<
+            I2CSlave<
+                PA9<Alternate<stm32l4xx_hal::gpio::AF4, Output<OpenDrain>>>,
+                PA10<Alternate<stm32l4xx_hal::gpio::AF4, Output<OpenDrain>>>,
+            >,
+        >,
+        apb1: APB1R1,
+        dbg1: i2c_slave::Dbg1,
+        dbg2: i2c_slave::Dbg2,
+        dbg3: i2c_slave::Dbg3,
     }
 
-    #[init(schedule = [read_loop, transform_loop, send_loop])]
+    #[init(schedule = [read_loop, transform_loop, send_loop, slave_loop])]
     fn init(mut cx: init::Context) -> init::LateResources {
         static mut USB_BUS: Option<bus::UsbBusAllocator<UsbBusType>> = None;
 
@@ -66,12 +75,8 @@ const APP: () = {
         let mut gpioa = cx.device.GPIOA.split(&mut rcc.ahb2);
         let mut gpiob = cx.device.GPIOB.split(&mut rcc.ahb2);
         let mut gpioc = cx.device.GPIOC.split(&mut rcc.ahb2);
-        let led = gpioc
-            .pc13
-            .into_push_pull_output(&mut gpioc.moder, &mut gpioc.otyper);
         let mut pwr = cx.device.PWR.constrain(&mut rcc.apb1r1);
 
-        // TODO: Is this clock correct for usb?
         let clocks = rcc
             .cfgr
             .hsi48(true)
@@ -82,27 +87,16 @@ const APP: () = {
             .freeze(&mut flash.acr, &mut pwr);
 
         enable_crs();
-        enable_usb_pwr();
 
-        let usb_dm = gpioa.pa11.into_af10(&mut gpioa.moder, &mut gpioa.afrh);
-        let usb_dp = gpioa.pa12.into_af10(&mut gpioa.moder, &mut gpioa.afrh);
-
-        let usb = Peripheral {
-            usb: cx.device.USB,
-            pin_dm: usb_dm,
-            pin_dp: usb_dp,
-        };
-
-        *USB_BUS = Some(UsbBus::new(usb));
-
-        let hid = HIDClass::new(USB_BUS.as_ref().unwrap());
-
-        let usb_dev = UsbDeviceBuilder::new(USB_BUS.as_ref().unwrap(), UsbVidPid(0xc410, 0x0000))
-            .manufacturer("tomykaira")
-            .product("FLAT7")
-            .serial_number("TEST")
-            .device_class(0)
-            .build();
+        let dbg1 = gpiob
+            .pb2
+            .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
+        let dbg2 = gpiob
+            .pb1
+            .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
+        let dbg3 = gpiob
+            .pb0
+            .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
 
         let stream = KeyStream::new();
         let switches = Switches::new(
@@ -124,15 +118,15 @@ const APP: () = {
             gpiob
                 .pb3
                 .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
-            gpiob
-                .pb2
-                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
-            gpiob
-                .pb1
-                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
-            gpiob
-                .pb0
-                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            // gpiob
+            //     .pb2
+            //     .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            // gpiob
+            //     .pb1
+            //     .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            // gpiob
+            //     .pb0
+            //     .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
         );
 
         let mut scl = gpioa
@@ -146,62 +140,155 @@ const APP: () = {
             .into_open_drain_output(&mut gpioa.moder, &mut gpioa.otyper);
         sda.internal_pull_up(&mut gpioa.pupdr, true);
         let sda = sda.into_af4(&mut gpioa.moder, &mut gpioa.afrh);
-        let i2c = I2c::i2c1(
-            cx.device.I2C1,
-            (scl, sda),
-            100_000.hz(),
-            clocks,
-            &mut rcc.apb1r1,
-        );
 
-        let peer = Peer::new(i2c);
+        if cfg!(feature = "host") {
+            enable_usb_pwr();
 
-        cx.schedule.read_loop(cx.start + READ_PERIOD.cycles()).ok();
-        cx.schedule
-            .transform_loop(cx.start + TRANSFORM_PERIOD.cycles())
-            .ok();
-        cx.schedule.send_loop(cx.start + SEND_PERIOD.cycles()).ok();
+            let usb_dm = gpioa.pa11.into_af10(&mut gpioa.moder, &mut gpioa.afrh);
+            let usb_dp = gpioa.pa12.into_af10(&mut gpioa.moder, &mut gpioa.afrh);
 
-        init::LateResources {
-            led,
+            let usb = Peripheral {
+                usb: cx.device.USB,
+                pin_dm: usb_dm,
+                pin_dp: usb_dp,
+            };
 
-            usb_dev,
-            hid,
-            stream,
-            switches,
-            peer,
-            report_buffer: RingBuffer::new([0; 8]),
+            *USB_BUS = Some(UsbBus::new(usb));
+
+            let hid = HIDClass::new(USB_BUS.as_ref().unwrap());
+
+            let usb_dev =
+                UsbDeviceBuilder::new(USB_BUS.as_ref().unwrap(), UsbVidPid(0xc410, 0x0000))
+                    .manufacturer("tomykaira")
+                    .product("FLAT7")
+                    .serial_number("TEST")
+                    .device_class(0)
+                    .build();
+            let i2c = I2c::i2c1(
+                cx.device.I2C1,
+                (scl, sda),
+                100_000.hz(),
+                clocks,
+                &mut rcc.apb1r1,
+            );
+
+            cx.schedule.read_loop(cx.start + READ_PERIOD.cycles()).ok();
+            cx.schedule
+                .transform_loop(cx.start + TRANSFORM_PERIOD.cycles())
+                .ok();
+            cx.schedule.send_loop(cx.start + SEND_PERIOD.cycles()).ok();
+
+            init::LateResources {
+                usb_dev: Some(usb_dev),
+                hid: Some(hid),
+                stream,
+                switches,
+                peer: Some(Peer::new(i2c)),
+                report_buffer: RingBuffer::new([0; 8]),
+                slave: None,
+                apb1: rcc.apb1r1,
+                dbg1,
+                dbg2,
+                dbg3,
+            }
+        } else {
+            let mut slave = I2CSlave::i2c1(
+                cx.device.I2C1,
+                (scl, sda),
+                peer::I2C_ADDRESS,
+                100_000.hz(),
+                clocks,
+            );
+            slave.slave_initialization(&mut rcc.apb1r1);
+
+            cx.schedule.slave_loop(cx.start + 1.cycles()).ok();
+
+            init::LateResources {
+                usb_dev: None,
+                hid: None,
+                stream,
+                switches,
+                peer: None,
+                report_buffer: RingBuffer::new([0; 8]),
+                slave: Some(slave),
+                apb1: rcc.apb1r1,
+                dbg1,
+                dbg2,
+                dbg3,
+            }
         }
     }
 
-    #[task(schedule = [read_loop], resources = [led, stream, switches, peer], priority = 1)]
+    #[task(schedule = [slave_loop], resources = [slave, apb1, dbg1, dbg2, dbg3], priority = 1)]
+    fn slave_loop(mut cx: slave_loop::Context) {
+        cx.schedule.slave_loop(Instant::now() + 1.cycles()).ok();
+
+        let slave = &mut cx.resources.slave;
+
+        if let Some(ref mut slave) = slave {
+            let mut buf = [0u8; 1];
+            let err = slave.receive(&mut buf);
+            if err.is_ok() {
+                #[cfg(feature = "semihosting")]
+                slave.transmit(&buf);
+            } else {
+                #[cfg(feature = "semihosting")]
+                hprintln!("{:?}", err);
+            }
+        }
+    }
+
+    #[task(schedule = [read_loop], resources = [stream, switches, peer, dbg1, dbg2, dbg3], priority = 1)]
     fn read_loop(mut cx: read_loop::Context) {
         cx.schedule
             .read_loop(Instant::now() + READ_PERIOD.cycles())
             .ok();
 
-        let led = &mut cx.resources.led;
         let stream = &mut cx.resources.stream;
         let switches = &mut cx.resources.switches;
         let peer = &mut cx.resources.peer;
+        let dbg1 = &mut cx.resources.dbg1;
+        let dbg2 = &mut cx.resources.dbg2;
+        let dbg3 = &mut cx.resources.dbg3;
+
+        dbg1.set_low().unwrap();
+        dbg2.set_low().unwrap();
+        dbg3.set_low().unwrap();
 
         let mat = switches.scan();
-        let (ok, per) = peer.read();
-        if ok {
-            led.set_high().unwrap();
-        } else {
-            led.set_low().unwrap();
-            // match peer.error {
-            //     None => {}
-            //     Some(nb::Error::WouldBlock) => debug(hid, KBD_A),
-            //     Some(nb::Error::Other(i2c::Error::Acknowledge)) => debug(hid, KBD_B),
-            //     Some(nb::Error::Other(i2c::Error::Arbitration)) => debug(hid, KBD_D),
-            //     Some(nb::Error::Other(i2c::Error::Bus)) => debug(hid, KBD_E),
-            //     Some(nb::Error::Other(i2c::Error::Overrun)) => debug(hid, KBD_F),
-            //     Some(nb::Error::Other(i2c::Error::_Extensible)) => debug(hid, KBD_X),
-            // }
+        match peer {
+            Some(p) => {
+                dbg1.set_high().unwrap();
+                let (ok, per) = p.read();
+                if ok {
+                    dbg1.set_high().unwrap();
+                    dbg3.set_high().unwrap();
+                    #[cfg(feature = "semihosting")]
+                    hprintln!("h");
+                } else {
+                    dbg1.set_low().unwrap();
+                    dbg3.set_high().unwrap();
+                    #[cfg(feature = "semihosting")]
+                    hprintln!("v");
+                    // match peer.error {
+                    //     None => {}
+                    //     Some(nb::Error::WouldBlock) => debug(hid, KBD_A),
+                    //     Some(nb::Error::Other(i2c::Error::Acknowledge)) => debug(hid, KBD_B),
+                    //     Some(nb::Error::Other(i2c::Error::Arbitration)) => debug(hid, KBD_D),
+                    //     Some(nb::Error::Other(i2c::Error::Bus)) => debug(hid, KBD_E),
+                    //     Some(nb::Error::Other(i2c::Error::Overrun)) => debug(hid, KBD_F),
+                    //     Some(nb::Error::Other(i2c::Error::_Extensible)) => debug(hid, KBD_X),
+                    // }
+                }
+                if per[0] == 0x12u8 {
+                    dbg2.set_high().unwrap();
+                } else {
+                    dbg2.set_low().unwrap();
+                }
+                stream.push(&mat, &per, DWT::get_cycle_count());
+            }
+            None => (),
         }
-        stream.push(&mat, &per, DWT::get_cycle_count());
     }
 
     #[task(schedule = [transform_loop], resources = [stream, report_buffer], priority = 1)]
@@ -228,7 +315,7 @@ const APP: () = {
         let report_buffer = &mut cx.resources.report_buffer;
 
         if let Some(k) = report_buffer.peek(0) {
-            match hid.lock(|h| h.write(&k)) {
+            match hid.lock(|h| h.as_mut().unwrap().write(&k)) {
                 Err(UsbError::WouldBlock) => (),
                 Err(UsbError::BufferOverflow) => panic!("BufferOverflow"),
                 Err(_) => panic!("Undocumented usb error"),
@@ -239,12 +326,14 @@ const APP: () = {
 
     #[task(binds=USB, resources = [usb_dev, hid], priority = 2)]
     fn usb_tx(mut cx: usb_tx::Context) {
-        usb_poll(&mut cx.resources.usb_dev, &mut cx.resources.hid);
+        usb_poll(
+            &mut cx.resources.usb_dev.as_mut().unwrap(),
+            &mut cx.resources.hid.as_mut().unwrap(),
+        );
     }
 
     extern "C" {
         fn EXTI0();
-        fn I2C1();
     }
 };
 

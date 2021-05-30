@@ -4,7 +4,7 @@
 
 [target.'cfg(all(target_arch = "arm", target_os = "none"))']
 # runner = "arm-none-eabi-gdb -q -batch -x target.gdb -x runner.gdb -ex kill"
-runner = "arm-none-eabi-gdb -q -x target.gdb -x runner.gdb -ex c"
+runner = "arm-none-eabi-gdb.exe -q -x target.gdb -x runner.gdb -ex c"
 
 rustflags = [
   # LLD (shipped with the Rust toolchain) is used as the default linker
