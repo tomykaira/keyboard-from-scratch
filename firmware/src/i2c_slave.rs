@@ -10,11 +10,6 @@ use stm32l4xx_hal::time::Hertz;
 #[allow(unused_imports)]
 #[cfg(feature = "semihosting")]
 use cortex_m_semihosting::hprintln;
-use stm32l4xx_hal::gpio;
-
-pub type Dbg1 = gpio::gpiob::PB2<gpio::Output<gpio::PushPull>>;
-pub type Dbg2 = gpio::gpiob::PB1<gpio::Output<gpio::PushPull>>;
-pub type Dbg3 = gpio::gpiob::PB0<gpio::Output<gpio::PushPull>>;
 
 #[derive(Debug)]
 pub enum Error {
@@ -26,23 +21,14 @@ pub enum Error {
     Nack,
     /// Other transfer is ongoing
     Busy,
-}
-
-#[derive(Eq, PartialEq)]
-enum State {
-    /// No ongoing transfer
-    Idle,
-    /// Receiving
-    BusyRx,
-    /// Transmitting
-    BusyTx,
+    /// Timeout in busy_wait loop.
+    Timeout,
 }
 
 pub struct I2CSlave<SCL, SDA> {
     i2c: I2C1,
     pins: (SCL, SDA),
     address: u8,
-    state: State,
     freq: Hertz,
     clocks: Clocks,
 }
@@ -57,7 +43,6 @@ impl<SCLPIN, SDAPIN> I2CSlave<SCLPIN, SDAPIN> {
             i2c: i2c,
             pins: pins,
             address,
-            state: State::Idle,
             freq,
             clocks,
         }
@@ -69,9 +54,11 @@ impl<SCLPIN, SDAPIN> I2CSlave<SCLPIN, SDAPIN> {
 type I2cRegisterBlock = stm32l4xx_hal::pac::i2c1::RegisterBlock;
 
 macro_rules! busy_wait {
-    ($i2c:expr, $flag:ident, $variant:ident) => {
+    ($i2c:expr, $flag:ident, $variant:ident, $timeout:ident) => {
+        let mut count = 0;
         loop {
             let isr = $i2c.isr.read();
+            count += 1;
 
             if isr.$flag().$variant() {
                 break;
@@ -85,9 +72,11 @@ macro_rules! busy_wait {
                 return Err(Error::Arbitration);
             } else if isr.nackf().bit_is_set() {
                 $i2c.icr.write(|w| w.stopcf().set_bit().nackcf().set_bit());
-                // flush_txdr!($i2c);
                 $i2c.cr2.write(|w| w.nack().set_bit());
                 return Err(Error::Nack);
+            } else if count >= $timeout {
+                $i2c.cr2.write(|w| w.nack().set_bit());
+                return Err(Error::Timeout);
             } else {
                 // try again
             }
@@ -145,110 +134,64 @@ impl<SCL: SclPin<I2C1>, SDA: SdaPin<I2C1>> I2CSlave<SCL, SDA> {
         self.i2c.txdr.write(|w| w.txdata().bits(value));
     }
 
-    pub fn receive(&mut self, buffer: &mut [u8]) -> Result<(), Error> {
-        // if self.state != State::Idle {
-        //     return Err(Error::Busy);
-        // }
-
+    pub fn receive(&mut self, buffer: &mut [u8], timeout: u32) -> Result<(), Error> {
         assert!(buffer.len() > 0);
-
-        // TODO: timeout
-        // let tickstart = HAL_GetTick();
-
-        self.state = State::BusyRx;
 
         // Enable Address Acknowledge
         self.i2c.cr2.write(|w| w.nack().clear_bit());
 
         // Wait until ADDR flag is set
-        // TODO: timeout
-        busy_wait!(self.i2c, addr, is_match_);
-        // On timeout:
-        // {
-        //     /* Disable Address Acknowledge */
-        //     hi2c->Instance->CR2 |= I2C_CR2_NACK;
-        //     return HAL_ERROR;
-        // }
+        busy_wait!(self.i2c, addr, is_match_, timeout);
 
         /* Clear ADDR flag */
         self.i2c.icr.write(|w| w.addrcf().set_bit());
 
         /* Wait until DIR flag is reset Receiver mode */
-        busy_wait!(self.i2c, dir, bit_is_clear);
-        // On timeout:
-        // {
-        //     /* Disable Address Acknowledge */
-        //     hi2c->Instance->CR2 |= I2C_CR2_NACK;
-        //     return HAL_ERROR;
-        // }
+        busy_wait!(self.i2c, dir, bit_is_clear, timeout);
 
         let mut off = 0;
         while off < buffer.len() {
             /* Wait until RXNE flag is set */
-            busy_wait!(self.i2c, rxne, is_not_empty);
+            busy_wait!(self.i2c, rxne, is_not_empty, timeout);
             /* Read data from RXDR */
             buffer[off] = self.read();
             off += 1;
         }
 
         /* Wait until STOP flag is set */
-        busy_wait!(self.i2c, stopf, bit_is_set);
+        busy_wait!(self.i2c, stopf, bit_is_set, timeout);
         /* Clear STOP flag */
         self.i2c.icr.write(|w| w.stopcf().set_bit());
 
         /* Wait until BUSY flag is reset */
-        busy_wait!(self.i2c, busy, bit_is_clear);
+        busy_wait!(self.i2c, busy, bit_is_clear, timeout);
 
         /* Disable Address Acknowledge */
         self.i2c.cr2.write(|w| w.nack().set_bit());
-
-        self.state = State::Idle;
         return Ok(());
     }
 
-    pub fn transmit(&mut self, buffer: &[u8]) -> Result<(), Error> {
-        // if self.state != State::Idle {
-        //     return Err(Error::Busy);
-        // }
-
+    pub fn transmit(&mut self, buffer: &[u8], timeout: u32) -> Result<(), Error> {
         assert!(buffer.len() > 0);
-
-        // TODO: Init tickstart for timeout management
-        // tickstart = HAL_GetTick();
-
-        self.state = State::BusyTx;
 
         /* Enable Address Acknowledge */
         self.i2c.cr2.write(|w| w.nack().clear_bit());
 
         // Wait until ADDR flag is set
-        // TODO: timeout
-        busy_wait!(self.i2c, addr, is_match_);
-        // On timeout:
-        // {
-        //     /* Disable Address Acknowledge */
-        //     hi2c->Instance->CR2 |= I2C_CR2_NACK;
-        //     return HAL_ERROR;
-        // }
+        busy_wait!(self.i2c, addr, is_match_, timeout);
 
         /* Clear ADDR flag */
         self.i2c.icr.write(|w| w.addrcf().set_bit());
 
         /* Wait until DIR flag is reset Receiver mode */
-        busy_wait!(self.i2c, dir, bit_is_set);
-        // On timeout:
-        // {
-        //     /* Disable Address Acknowledge */
-        //     hi2c->Instance->CR2 |= I2C_CR2_NACK;
-        //     return HAL_ERROR;
-        // }
+        busy_wait!(self.i2c, dir, bit_is_set, timeout);
 
         let mut off = 0;
         while off < buffer.len() {
             // Wait until we are allowed to send data
             // (START has been ACKed or last byte when
             // through)
-            busy_wait!(self.i2c, txis, is_empty);
+            busy_wait!(self.i2c, txis, is_empty, timeout);
 
             // Put byte on the wire
             self.write(buffer[off]);
@@ -256,17 +199,15 @@ impl<SCL: SclPin<I2C1>, SDA: SdaPin<I2C1>> I2CSlave<SCL, SDA> {
         }
 
         /* Wait until STOP flag is set */
-        busy_wait!(self.i2c, stopf, bit_is_set);
+        busy_wait!(self.i2c, stopf, bit_is_set, timeout);
         /* Clear STOP flag */
         self.i2c.icr.write(|w| w.stopcf().set_bit());
 
         /* Wait until BUSY flag is reset */
-        busy_wait!(self.i2c, busy, bit_is_clear);
+        busy_wait!(self.i2c, busy, bit_is_clear, timeout);
 
         /* Disable Address Acknowledge */
         self.i2c.cr2.write(|w| w.nack().set_bit());
-
-        self.state = State::Idle;
         Ok(())
     }
 

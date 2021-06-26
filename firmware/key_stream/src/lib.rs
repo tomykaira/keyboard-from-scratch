@@ -51,6 +51,7 @@ struct FeatureState {
     mods: [bool; 3],
     commands: [Command; REPORT_SLOTS],
     last_action_cnt: u16,
+    requests_reset: bool,
 }
 
 impl FeatureState {
@@ -59,6 +60,7 @@ impl FeatureState {
             mods: [false; 3],
             commands: [Command::Nop; REPORT_SLOTS],
             last_action_cnt: 0,
+            requests_reset: false,
         }
     }
 
@@ -150,7 +152,7 @@ impl FeatureState {
         }
     }
 
-    fn make_key_report(&self) -> [u8; 8] {
+    fn make_key_report(&mut self) -> [u8; 8] {
         let mut key = [0u8; 8];
         let mut ptr = 2;
         for c in self.commands.iter() {
@@ -169,6 +171,9 @@ impl FeatureState {
                     for m in mk.iter() {
                         key[0] |= m.code();
                     }
+                }
+                Command::RequestReset => {
+                    self.requests_reset = true;
                 }
             }
         }
@@ -238,6 +243,10 @@ impl KeyStream {
 
     fn push_event(&mut self, evt: &Event) {
         self.events.push(evt)
+    }
+
+    pub fn requests_reset(&self) -> bool {
+        self.state.requests_reset
     }
 
     /// Return: `[modifier, key]`
@@ -424,6 +433,7 @@ impl Command {
             Command::KeyPress { .. } => true,
             Command::PressModifier { .. } => true,
             Command::ModifiedKey { .. } => true,
+            Command::RequestReset { .. } => true,
         }
     }
 }

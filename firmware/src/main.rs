@@ -11,11 +11,10 @@ use cortex_m::peripheral::DWT;
 #[allow(unused_imports)]
 #[cfg(feature = "semihosting")]
 use cortex_m_semihosting::hprintln;
-use embedded_hal::digital::v2::OutputPin;
 use rtic::cyccnt::{Instant, U32Ext as _};
 use stm32l4xx_hal::i2c::I2c;
 use stm32l4xx_hal::usb::{Peripheral, UsbBus, UsbBusType};
-use stm32l4xx_hal::{gpio, prelude::*, stm32};
+use stm32l4xx_hal::{prelude::*, stm32};
 use usb_device::bus;
 use usb_device::prelude::*;
 
@@ -33,12 +32,14 @@ mod hid;
 // mod matrix;
 mod i2c_slave;
 mod peer;
+mod reset;
 
 // Do not change CLOCK while using STM32L412.
 const CLOCK: u32 = 48; // MHz
 const READ_PERIOD: u32 = CLOCK * 1000; // about 1ms
 const TRANSFORM_PERIOD: u32 = READ_PERIOD * 15; // about 15ms
 const SEND_PERIOD: u32 = READ_PERIOD; // 1ms
+const SLAVE_TIMEOUT: u32 = 1000; // pseudo cycles.
 
 #[rtic::app(device = stm32l4xx_hal::stm32, peripherals = true, monotonic = rtic::cyccnt::CYCCNT)]
 const APP: () = {
@@ -56,9 +57,6 @@ const APP: () = {
             >,
         >,
         apb1: APB1R1,
-        dbg1: i2c_slave::Dbg1,
-        dbg2: i2c_slave::Dbg2,
-        dbg3: i2c_slave::Dbg3,
     }
 
     #[init(schedule = [read_loop, transform_loop, send_loop, slave_loop])]
@@ -74,7 +72,6 @@ const APP: () = {
 
         let mut gpioa = cx.device.GPIOA.split(&mut rcc.ahb2);
         let mut gpiob = cx.device.GPIOB.split(&mut rcc.ahb2);
-        let mut gpioc = cx.device.GPIOC.split(&mut rcc.ahb2);
         let mut pwr = cx.device.PWR.constrain(&mut rcc.apb1r1);
 
         let clocks = rcc
@@ -88,45 +85,83 @@ const APP: () = {
 
         enable_crs();
 
-        let dbg1 = gpiob
-            .pb2
-            .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
-        let dbg2 = gpiob
-            .pb1
-            .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
-        let dbg3 = gpiob
-            .pb0
-            .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
-
         let stream = KeyStream::new();
         let switches = Switches::new(
             gpiob
                 .pb8
                 .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
             gpiob
-                .pb7
-                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
-            gpiob
-                .pb6
+                .pb2
                 .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
             gpiob
                 .pb5
+                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            gpioa
+                .pa8
+                .into_pull_up_input(&mut gpioa.moder, &mut gpioa.pupdr),
+            gpiob
+                .pb7
                 .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
             gpiob
                 .pb4
                 .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
             gpiob
+                .pb1
+                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            gpiob
+                .pb9
+                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            gpiob
+                .pb6
+                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            gpiob
                 .pb3
                 .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
-            // gpiob
-            //     .pb2
-            //     .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
-            // gpiob
-            //     .pb1
-            //     .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
-            // gpiob
-            //     .pb0
-            //     .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            gpiob
+                .pb0
+                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            gpioa
+                .pa4
+                .into_pull_up_input(&mut gpioa.moder, &mut gpioa.pupdr),
+            gpiob
+                .pb12
+                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            gpiob
+                .pb11
+                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            gpiob
+                .pb10
+                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            gpioa
+                .pa7
+                .into_pull_up_input(&mut gpioa.moder, &mut gpioa.pupdr),
+            gpiob
+                .pb15
+                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            gpiob
+                .pb14
+                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            gpiob
+                .pb13
+                .into_pull_up_input(&mut gpiob.moder, &mut gpiob.pupdr),
+            gpioa
+                .pa6
+                .into_pull_up_input(&mut gpioa.moder, &mut gpioa.pupdr),
+            gpioa
+                .pa0
+                .into_pull_up_input(&mut gpioa.moder, &mut gpioa.pupdr),
+            gpioa
+                .pa1
+                .into_pull_up_input(&mut gpioa.moder, &mut gpioa.pupdr),
+            gpioa
+                .pa2
+                .into_pull_up_input(&mut gpioa.moder, &mut gpioa.pupdr),
+            gpioa
+                .pa5
+                .into_pull_up_input(&mut gpioa.moder, &mut gpioa.pupdr),
+            gpioa
+                .pa3
+                .into_pull_up_input(&mut gpioa.moder, &mut gpioa.pupdr),
         );
 
         let mut scl = gpioa
@@ -187,9 +222,6 @@ const APP: () = {
                 report_buffer: RingBuffer::new([0; 8]),
                 slave: None,
                 apb1: rcc.apb1r1,
-                dbg1,
-                dbg2,
-                dbg3,
             }
         } else {
             let mut slave = I2CSlave::i2c1(
@@ -212,33 +244,31 @@ const APP: () = {
                 report_buffer: RingBuffer::new([0; 8]),
                 slave: Some(slave),
                 apb1: rcc.apb1r1,
-                dbg1,
-                dbg2,
-                dbg3,
             }
         }
     }
 
-    #[task(schedule = [slave_loop], resources = [slave, apb1, dbg1, dbg2, dbg3], priority = 1)]
+    #[task(schedule = [slave_loop], resources = [slave, switches], priority = 1)]
     fn slave_loop(mut cx: slave_loop::Context) {
         cx.schedule.slave_loop(Instant::now() + 1.cycles()).ok();
 
         let slave = &mut cx.resources.slave;
+        let switches = &mut cx.resources.switches;
 
         if let Some(ref mut slave) = slave {
-            let mut buf = [0u8; 1];
-            let err = slave.receive(&mut buf);
-            if err.is_ok() {
-                #[cfg(feature = "semihosting")]
-                slave.transmit(&buf);
-            } else {
-                #[cfg(feature = "semihosting")]
-                hprintln!("{:?}", err);
+            let mat = switches.scan();
+            match slave.transmit(&mat, SLAVE_TIMEOUT) {
+                Ok(()) => {}
+                Err(e) => {
+                    let _ = e;
+                    #[cfg(feature = "semihosting")]
+                    hprintln!("slave_error ?:", e);
+                }
             }
         }
     }
 
-    #[task(schedule = [read_loop], resources = [stream, switches, peer, dbg1, dbg2, dbg3], priority = 1)]
+    #[task(schedule = [read_loop], resources = [stream, switches, peer], priority = 1)]
     fn read_loop(mut cx: read_loop::Context) {
         cx.schedule
             .read_loop(Instant::now() + READ_PERIOD.cycles())
@@ -247,43 +277,17 @@ const APP: () = {
         let stream = &mut cx.resources.stream;
         let switches = &mut cx.resources.switches;
         let peer = &mut cx.resources.peer;
-        let dbg1 = &mut cx.resources.dbg1;
-        let dbg2 = &mut cx.resources.dbg2;
-        let dbg3 = &mut cx.resources.dbg3;
-
-        dbg1.set_low().unwrap();
-        dbg2.set_low().unwrap();
-        dbg3.set_low().unwrap();
 
         let mat = switches.scan();
         match peer {
             Some(p) => {
-                dbg1.set_high().unwrap();
                 let (ok, per) = p.read();
                 if ok {
-                    dbg1.set_high().unwrap();
-                    dbg3.set_high().unwrap();
                     #[cfg(feature = "semihosting")]
                     hprintln!("h");
                 } else {
-                    dbg1.set_low().unwrap();
-                    dbg3.set_high().unwrap();
                     #[cfg(feature = "semihosting")]
                     hprintln!("v");
-                    // match peer.error {
-                    //     None => {}
-                    //     Some(nb::Error::WouldBlock) => debug(hid, KBD_A),
-                    //     Some(nb::Error::Other(i2c::Error::Acknowledge)) => debug(hid, KBD_B),
-                    //     Some(nb::Error::Other(i2c::Error::Arbitration)) => debug(hid, KBD_D),
-                    //     Some(nb::Error::Other(i2c::Error::Bus)) => debug(hid, KBD_E),
-                    //     Some(nb::Error::Other(i2c::Error::Overrun)) => debug(hid, KBD_F),
-                    //     Some(nb::Error::Other(i2c::Error::_Extensible)) => debug(hid, KBD_X),
-                    // }
-                }
-                if per[0] == 0x12u8 {
-                    dbg2.set_high().unwrap();
-                } else {
-                    dbg2.set_low().unwrap();
                 }
                 stream.push(&mat, &per, DWT::get_cycle_count());
             }
@@ -303,6 +307,12 @@ const APP: () = {
         stream.read(DWT::get_cycle_count(), |k| {
             report_buffer.push(&k);
         });
+
+        if stream.requests_reset() {
+            unsafe {
+                reset::reset();
+            }
+        }
     }
 
     #[task(schedule = [send_loop], resources = [hid, report_buffer], priority = 1)]
@@ -325,7 +335,7 @@ const APP: () = {
     }
 
     #[task(binds=USB, resources = [usb_dev, hid], priority = 2)]
-    fn usb_tx(mut cx: usb_tx::Context) {
+    fn usb_tx(cx: usb_tx::Context) {
         usb_poll(
             &mut cx.resources.usb_dev.as_mut().unwrap(),
             &mut cx.resources.hid.as_mut().unwrap(),

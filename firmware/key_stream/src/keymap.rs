@@ -12,6 +12,7 @@ pub enum Command {
     KeyPress { kc: Kc },
     PressModifier { mk: ModifierKey },
     ModifiedKey { mk: &'static [ModifierKey], kc: Kc },
+    RequestReset,
 }
 
 const fn k(kc: Kc) -> Command {
@@ -344,7 +345,7 @@ pub static MOD3_KEY_MAP: [Command; 48] = [
     nop(),
 ];
 
-pub static COMBO_KEYS: [(Pos, Pos, Command); 8] = [
+pub static COMBO_KEYS: [(Pos, Pos, Command); 9] = [
     (0xa2, 0xa3, k(KC::KBD_ENTER)),
     (0x24, 0x25, k(KC::KBD_ESCAPE)),
     (0xa3, 0xa4, k(KC::KBD_JP_OPEN_BRACKET)),
@@ -353,4 +354,5 @@ pub static COMBO_KEYS: [(Pos, Pos, Command); 8] = [
     (0xb4, 0xb5, RBRACE),
     (0x94, 0x96, CMD_LBRACE),
     (0xa4, 0xa6, CMD_RBRACE),
+    (0x22, 0x23, Command::RequestReset),
 ];
